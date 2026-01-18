@@ -1,9 +1,64 @@
 import { create } from "zustand";
-import { mails as initialMails } from "../data/dummyMails";
+import {
+  fetchEmails,
+  markAsRead,
+  sendReply,
+  analyzeOnDemand,
+  subscribeToEmails
+} from "../services/emailService";
 
 export const useMailStore = create((set, get) => ({
   /* ===== MAIL DATA ===== */
-  mails: initialMails,
+  mails: [],
+  isLoading: false,
+  error: null,
+  subscription: null,
+
+  /* ===== FETCH MAILS FROM SUPABASE ===== */
+  fetchMails: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const mails = await fetchEmails("Inbox");
+      // Also fetch spam for the Spam folder
+      const spamMails = await fetchEmails("Spam");
+      set({
+        mails: [...mails, ...spamMails],
+        isLoading: false
+      });
+    } catch (error) {
+      console.error("Failed to fetch emails:", error);
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  /* ===== REAL-TIME SUBSCRIPTION ===== */
+  subscribeToEmails: () => {
+    const subscription = subscribeToEmails(
+      // onInsert - new email arrived
+      (newEmail) => {
+        set((s) => ({
+          mails: [newEmail, ...s.mails],
+        }));
+      },
+      // onUpdate - email was updated (read status, AI analysis, etc)
+      (updatedEmail) => {
+        set((s) => ({
+          mails: s.mails.map((m) =>
+            m.id === updatedEmail.id ? updatedEmail : m
+          ),
+        }));
+      }
+    );
+    set({ subscription });
+  },
+
+  unsubscribeFromEmails: () => {
+    const { subscription } = get();
+    if (subscription) {
+      subscription.unsubscribe();
+      set({ subscription: null });
+    }
+  },
 
   /* ===== USER AUTH ===== */
   user: {
@@ -45,7 +100,24 @@ export const useMailStore = create((set, get) => ({
 
   /* ===== SELECTED MAIL ===== */
   selectedMail: null,
-  setSelectedMail: (mail) => set({ selectedMail: mail }),
+  setSelectedMail: async (mail) => {
+    set({ selectedMail: mail });
+    // Mark as read when selected
+    if (mail && !mail.readStatus) {
+      try {
+        await markAsRead(mail.id);
+        // Update local state
+        set((s) => ({
+          mails: s.mails.map((m) =>
+            m.id === mail.id ? { ...m, readStatus: true } : m
+          ),
+          selectedMail: { ...mail, readStatus: true },
+        }));
+      } catch (error) {
+        console.error("Failed to mark as read:", error);
+      }
+    }
+  },
 
   /* ===== SEARCH ===== */
   searchText: "",
@@ -80,6 +152,7 @@ export const useMailStore = create((set, get) => ({
   /* ===== COMPOSE ===== */
   isComposeOpen: false,
   isComposeMinimized: false,
+  isSending: false,
 
   openCompose: () =>
     set({ isComposeOpen: true, isComposeMinimized: false }),
@@ -90,20 +163,55 @@ export const useMailStore = create((set, get) => ({
   toggleMinimize: () =>
     set((s) => ({ isComposeMinimized: !s.isComposeMinimized })),
 
-  sendMail: (mail) =>
-    set((s) => ({
-      mails: [
-        {
-          id: Date.now(),
-          folder: "Sent",
-          category: "",
-          ...mail,
-        },
-        ...s.mails,
-      ],
-    })),
+  sendMail: async (mail) => {
+    set({ isSending: true });
+    try {
+      await sendReply({
+        emailId: mail.replyToId || 'new',
+        replyText: mail.body,
+        toAddress: mail.to,
+        subject: mail.subject,
+      });
 
-  /* ===== FILTER MAILS (UNCHANGED) ===== */
+      // Add to local sent folder
+      set((s) => ({
+        mails: [
+          {
+            id: Date.now().toString(),
+            folder: "Sent",
+            category: "",
+            from: "me@gmail.com",
+            ...mail,
+          },
+          ...s.mails,
+        ],
+        isSending: false,
+        isComposeOpen: false,
+      }));
+    } catch (error) {
+      console.error("Failed to send email:", error);
+      set({ isSending: false });
+      throw error;
+    }
+  },
+
+  /* ===== AI ANALYSIS ===== */
+  isAnalyzing: false,
+
+  triggerAnalysis: async (emailId) => {
+    set({ isAnalyzing: true });
+    try {
+      await analyzeOnDemand(emailId);
+      // The real-time subscription will update the email when analysis completes
+      set({ isAnalyzing: false });
+    } catch (error) {
+      console.error("Failed to trigger analysis:", error);
+      set({ isAnalyzing: false });
+      throw error;
+    }
+  },
+
+  /* ===== FILTER MAILS ===== */
   getFilteredMails: () => {
     const {
       mails,
@@ -113,6 +221,7 @@ export const useMailStore = create((set, get) => ({
     } = get();
 
     return mails.filter((m) => {
+      // Folder filter
       if (activeFolder === "Spam") {
         if (!m.isSpam) return false;
       } else {
@@ -120,6 +229,7 @@ export const useMailStore = create((set, get) => ({
         if (m.isSpam) return false;
       }
 
+      // Category filter for Inbox
       if (
         activeFolder === "Inbox" &&
         activeCategory !== "Primary" &&
@@ -128,6 +238,7 @@ export const useMailStore = create((set, get) => ({
         return false;
       }
 
+      // Search filter
       if (searchText) {
         const text = `${m.from} ${m.subject} ${m.body}`.toLowerCase();
         if (!text.includes(searchText.toLowerCase()))
