@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Topbar from "./components/Topbar";
 import Sidebar from "./components/Sidebar";
 import MailTabs from "./components/MailTabs";
@@ -10,6 +10,8 @@ import AddAccountModal from "./components/AddAccountModal";
 import SignOutModal from "./components/SignOutModal";
 import AuthModal from "./components/AuthModal";
 import ManageAccountModal from "./components/ManageAccountModal";
+import SplashScreen from "./components/SplashScreen";
+import LoginPage from "./components/LoginPage";
 import { useMailStore } from "./store/mailStore";
 
 export default function App() {
@@ -18,6 +20,9 @@ export default function App() {
   const unsubscribeFromEmails = useMailStore((s) => s.unsubscribeFromEmails);
   const isLoading = useMailStore((s) => s.isLoading);
   const error = useMailStore((s) => s.error);
+
+  const [step, setStep] = useState("splash");
+  // splash -> login -> app
 
   // Initialize: Fetch emails and set up real-time subscription
   useEffect(() => {
@@ -28,19 +33,24 @@ export default function App() {
     return () => {
       unsubscribeFromEmails();
     };
-  }, []);
+  }, [fetchMails, subscribeToEmails, unsubscribeFromEmails]);
+
+  if (step === "splash") {
+    return <SplashScreen onContinue={() => setStep("login")} />;
+  }
+
+  if (step === "login") {
+    return <LoginPage onLogin={() => setStep("app")} />;
+  }
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       <Topbar />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* LEFT ICON SIDEBAR */}
         <Sidebar />
 
-        {/* RIGHT MAIN CONTENT (TABS + MAILS) */}
         <div className="flex flex-1 flex-col bg-white">
-          {/* TABS (START AFTER SIDEBAR) */}
           <MailTabs />
 
           {/* Loading/Error States */}
