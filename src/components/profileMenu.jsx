@@ -9,16 +9,21 @@ export default function ProfileMenu() {
     openSignOut,
   } = useMailStore();
 
+  // Derive Display Name safely
+  const displayName = user?.user_metadata?.name || user?.email || "User";
+  const userInitial = displayName.charAt(0).toUpperCase();
+
   return (
     <div className="
       absolute right-0 mt-3 w-80
       bg-[#eef3fd] rounded-2xl
       shadow-2xl p-4
       animate-scaleFade
+      z-50
     ">
       {/* HEADER */}
       <div className="flex justify-between">
-        <span className="text-sm text-gray-600">{user.email}</span>
+        <span className="text-sm text-gray-600">{user?.email}</span>
         <button onClick={closeProfile}>
           <X size={16} />
         </button>
@@ -31,11 +36,11 @@ export default function ProfileMenu() {
           text-white flex items-center justify-center
           text-3xl shadow-lg
         ">
-          {user.name[0]}
+          {userInitial}
         </div>
 
         <h2 className="mt-3 text-lg font-medium">
-          Hi, {user.name}!
+          Hi, {displayName}!
         </h2>
 
         <button className="

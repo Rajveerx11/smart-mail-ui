@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useMailStore } from "./store/mailStore";
+import { supabase } from "./lib/supabase";
+
 import Topbar from "./components/Topbar";
 import Sidebar from "./components/Sidebar";
 import MailTabs from "./components/MailTabs";
@@ -10,37 +13,60 @@ import AddAccountModal from "./components/AddAccountModal";
 import SignOutModal from "./components/SignOutModal";
 import AuthModal from "./components/AuthModal";
 import ManageAccountModal from "./components/ManageAccountModal";
-import SplashScreen from "./components/SplashScreen";
 import LoginPage from "./components/LoginPage";
-import { useMailStore } from "./store/mailStore";
+// import SplashScreen from "./components/SplashScreen"; // Clean up if unused
 
 export default function App() {
-  const fetchMails = useMailStore((s) => s.fetchMails);
-  const subscribeToEmails = useMailStore((s) => s.subscribeToEmails);
-  const unsubscribeFromEmails = useMailStore((s) => s.unsubscribeFromEmails);
-  const isLoading = useMailStore((s) => s.isLoading);
-  const error = useMailStore((s) => s.error);
+  // Use global state from our store
+  const {
+    user,
+    setUser,
+    fetchMails,
+    subscribeToMails,
+    isLoading, // Kept heavily requested UI state
+    error      // Kept heavily requested UI state
+  } = useMailStore();
 
-  const [step, setStep] = useState("splash");
-  // splash -> login -> app
-
-  // Initialize: Fetch emails and set up real-time subscription
   useEffect(() => {
-    fetchMails();
-    subscribeToEmails();
+    let realtimeSubscription = null;
 
-    // Cleanup subscription on unmount
+    // 1. Check if a user is already logged in on load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setUser(session.user);
+        fetchMails();
+      }
+    });
+
+    // 2. Listen for Sign In / Sign Out events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setUser(session.user);
+        fetchMails();
+        // Prevent duplicate subscriptions if one already exists
+        if (!realtimeSubscription) {
+          realtimeSubscription = subscribeToMails();
+        }
+      } else {
+        setUser(null);
+        if (realtimeSubscription) {
+          realtimeSubscription.unsubscribe();
+          realtimeSubscription = null;
+        }
+      }
+    });
+
     return () => {
-      unsubscribeFromEmails();
+      subscription.unsubscribe();
+      if (realtimeSubscription) {
+        realtimeSubscription.unsubscribe();
+      }
     };
-  }, [fetchMails, subscribeToEmails, unsubscribeFromEmails]);
+  }, [setUser, fetchMails, subscribeToMails]);
 
-  if (step === "splash") {
-    return <SplashScreen onContinue={() => setStep("login")} />;
-  }
-
-  if (step === "login") {
-    return <LoginPage onLogin={() => setStep("app")} />;
+  // Logic for Routing
+  if (!user) {
+    return <LoginPage />;
   }
 
   return (
