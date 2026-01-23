@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { useMailStore } from "../store/mailStore";
 import { useEffect, useRef, useState } from "react";
+import logo from "../assets/Axon.png";
+import ProfileMenu from "./profileMenu"; // ✅ ADD THIS
 
 export default function Topbar() {
   const {
@@ -21,25 +23,12 @@ export default function Topbar() {
     isProfileOpen,
     toggleProfile,
     closeProfile,
-    openAddAccount,
-    openSignOut,
-    openManageAccount, // ✅ ADDED
   } = useMailStore();
 
   const inputRef = useRef(null);
   const profileBoxRef = useRef(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.key === "/" && document.activeElement !== inputRef.current) {
-        e.preventDefault();
-        inputRef.current.focus();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
+  const [showHoverProfile, setShowHoverProfile] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -53,8 +42,7 @@ export default function Topbar() {
     if (isProfileOpen) {
       document.addEventListener("mousedown", handler);
     }
-    return () =>
-      document.removeEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [isProfileOpen, closeProfile]);
 
   return (
@@ -70,45 +58,29 @@ export default function Topbar() {
         </button>
 
         <div className="flex items-center gap-2">
-          <img
-            src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico"
-            className="w-6 h-6"
-          />
-          <span className="text-xl font-medium">Gmail</span>
+          <img src={logo} alt="Axon" className="h-7 w-7" />
+          <span className="text-xl font-semibold">Axon</span>
         </div>
 
         {/* SEARCH */}
         <div className="relative w-[480px]">
           <div className="flex items-center gap-3 bg-gray-100 px-4 py-2 rounded-full">
             <Search size={18} />
-
             <input
               ref={inputRef}
               value={searchText}
               onFocus={() => setShowSuggestions(true)}
-              onBlur={() =>
-                setTimeout(() => setShowSuggestions(false), 150)
-              }
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               onChange={(e) => setSearchText(e.target.value)}
               placeholder="Search mail"
               className="bg-transparent outline-none flex-1 text-sm"
             />
-
             {searchText && (
-              <button
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  clearSearch();
-                }}
-              >
+              <button onClick={clearSearch}>
                 <X size={16} />
               </button>
             )}
-
-            <button
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={openSearchPanel}
-            >
+            <button onClick={openSearchPanel}>
               <SlidersHorizontal size={18} />
             </button>
           </div>
@@ -125,7 +97,7 @@ export default function Topbar() {
                   className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 cursor-pointer"
                 >
                   <Clock size={16} />
-                  <span>{item}</span>
+                  <span className="text-sm">{item}</span>
                 </div>
               ))}
             </div>
@@ -134,7 +106,12 @@ export default function Topbar() {
       </div>
 
       {/* RIGHT PROFILE */}
-      <div className="relative" ref={profileBoxRef}>
+      <div
+        className="relative"
+        ref={profileBoxRef}
+        onMouseEnter={() => setShowHoverProfile(true)}
+        onMouseLeave={() => setShowHoverProfile(false)}
+      >
         <button
           onClick={toggleProfile}
           className="w-10 h-10 rounded-full bg-blue-600 text-white
@@ -143,55 +120,24 @@ export default function Topbar() {
           {user.name.charAt(0)}
         </button>
 
-        {isProfileOpen && (
-          <div className="absolute right-0 mt-3 w-72 bg-[#eef3fd]
-          rounded-2xl shadow-2xl p-4 z-50">
-
-            <div className="flex justify-between items-start">
-              <span className="text-sm text-gray-600">
-                {user.email}
-              </span>
-              <button onClick={closeProfile}>
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="flex flex-col items-center mt-4">
-              <div className="w-20 h-20 rounded-full bg-blue-600
-              text-white flex items-center justify-center text-3xl">
-                {user.name.charAt(0)}
-              </div>
-
-              <h2 className="mt-3 text-lg font-medium">
-                Hi, {user.name}!
-              </h2>
-
-              <button
-                onClick={openManageAccount}   // ✅ FIX
-                className="mt-3 border border-blue-600
-                text-blue-600 px-4 py-1 rounded-full text-sm"
-              >
-                Manage your Google Account
-              </button>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button
-                onClick={openAddAccount}
-                className="bg-white rounded-full py-2 shadow text-sm"
-              >
-                Add account
-              </button>
-              <button
-                onClick={openSignOut}
-                className="bg-white rounded-full py-2 shadow text-sm"
-              >
-                Sign out
-              </button>
-            </div>
+        {/* HOVER TOOLTIP */}
+        {showHoverProfile && !isProfileOpen && (
+          <div className="absolute right-0 mt-2 w-60
+            bg-gray-800 text-white text-sm
+            rounded-lg px-4 py-3 shadow-xl
+            pointer-events-none animate-scaleFade z-50">
+            <p className="font-medium">Google Account</p>
+            <p className="opacity-90">{user.name}</p>
+            <p className="text-xs opacity-70">{user.email}</p>
           </div>
         )}
+      
+
+        {/* 🔥 THIS WAS MISSING */}
+        {isProfileOpen && <ProfileMenu />}
+        
       </div>
     </div>
+    
   );
 }
