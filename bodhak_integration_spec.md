@@ -13,7 +13,6 @@
 
 ## 2. File Structure
 
-```
 src/
 ├── components/
 │   ├── AddAccountModal.jsx
@@ -46,6 +45,7 @@ src/
 ├── App.jsx
 ├── main.jsx
 └── index.css
+
 ```
 
 ## 3. Inbox Logic
