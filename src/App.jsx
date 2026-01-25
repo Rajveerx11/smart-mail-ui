@@ -14,7 +14,7 @@ import SignOutModal from "./components/SignOutModal";
 import AuthModal from "./components/AuthModal";
 import ManageAccountModal from "./components/ManageAccountModal";
 import LoginPage from "./components/LoginPage";
-// import SplashScreen from "./components/SplashScreen"; // Clean up if unused
+import SplashScreen from "./components/SplashScreen";
 
 export default function App() {
   // Use global state from our store
