@@ -29,8 +29,7 @@ export const useMailStore = create((set, get) => ({
     }
   },
 
-  // Real-time Listener: This will automatically update the UI 
-  // when the AI Agent saves the Summary or Draft to Supabase.
+  // Real-time Listener: Updates UI when DB changes (from Edge Functions or Agent)
   subscribeToMails: () => {
     const channel = supabase
       .channel('realtime_emails')
@@ -44,7 +43,7 @@ export const useMailStore = create((set, get) => ({
           } else if (payload.eventType === 'UPDATE') {
             set((s) => ({
               mails: s.mails.map(m => m.id === payload.new.id ? payload.new : m),
-              // Update selectedMail if it's the one currently open
+              // Update selectedMail if it's the one currently open to show AI results immediately
               selectedMail: get().selectedMail?.id === payload.new.id ? payload.new : get().selectedMail
             }));
           }
@@ -145,6 +144,7 @@ export const useMailStore = create((set, get) => ({
   generateAISummary: async (emailId) => {
     set({ isAnalyzing: true });
     try {
+      // Unified API endpoint for Edge Function
       const apiUrl = 'https://lkeprbnwvmcggaxlizls.supabase.co/functions/v1/ai-assistant';
       const response = await fetch(`${apiUrl}/summarize`, {
         method: 'POST',
@@ -153,7 +153,7 @@ export const useMailStore = create((set, get) => ({
       });
       if (!response.ok) throw new Error('Summarization failed');
 
-      // Success: The real-time listener will update the local state 
+      // The real-time listener will update the local state 
       // when the backend writes the result to Supabase.
     } catch (error) {
       console.error("❌ Summary Generation Failed:", error);
@@ -166,7 +166,8 @@ export const useMailStore = create((set, get) => ({
   generateAIDraft: async (emailId) => {
     set({ isAnalyzing: true });
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      // Unified API endpoint for Edge Function
+      const apiUrl = 'https://lkeprbnwvmcggaxlizls.supabase.co/functions/v1/ai-assistant';
       const response = await fetch(`${apiUrl}/generate-reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
