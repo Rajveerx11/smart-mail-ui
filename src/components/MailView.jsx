@@ -12,10 +12,10 @@ export default function MailView() {
   const [reply, setReply] = useState("");
   const [showReplyBox, setShowReplyBox] = useState(false);
 
-  // Debug: Check exactly what the data object looks like in the browser console
+  // Debug: View full object structure in F12 console
   useEffect(() => {
     if (selectedMail) {
-      console.log("DEBUG: Current Selected Mail Object:", selectedMail);
+      console.log("DEBUG: Current Selected Mail Data:", selectedMail);
     }
   }, [selectedMail]);
 
@@ -30,18 +30,17 @@ export default function MailView() {
 
   /**
    * ROBUST BODY RESOLUTION:
-   * We check every possible key that might contain the message body 
-   * to fix the "No content available" issue.
+   * Fixes "No content available" by checking all possible key names.
    */
   const displayBody =
-    selectedMail.body ||       // Standard lowercase
-    selectedMail.Body ||       // Capitalized (Supabase default sometimes)
-    selectedMail.text ||       // Resend raw text
-    selectedMail.html ||       // Resend raw HTML
-    selectedMail.content ||    // Alternative name
+    selectedMail.body ||
+    selectedMail.Body ||
+    selectedMail.text ||
+    selectedMail.html ||
+    selectedMail.content ||
     "No message content available in the database.";
 
-  /* ===== AI SUMMARY ===== */
+  /* ===== AI ACTIONS ===== */
   const handleSummarize = async () => {
     try {
       await generateAISummary(selectedMail.id);
@@ -50,7 +49,6 @@ export default function MailView() {
     }
   };
 
-  /* ===== AI DRAFT ===== */
   const handleGenerateDraft = async () => {
     try {
       await generateAIDraft(selectedMail.id);
@@ -59,14 +57,8 @@ export default function MailView() {
     }
   };
 
-  /* ===== LOCAL SMART REPLY ===== */
   const generateLocalReply = () => {
-    const replies = [
-      "Thanks for the update.",
-      "Noted, I'll review.",
-      "Received with thanks.",
-      "Appreciate the information.",
-    ];
+    const replies = ["Thanks for the update.", "Noted, I'll review.", "Received with thanks."];
     setReply(replies[Math.floor(Math.random() * replies.length)]);
     setShowReplyBox(true);
   };
@@ -84,13 +76,9 @@ export default function MailView() {
             From: <span className="font-medium">{selectedMail.sender || selectedMail.from || "Unknown"}</span>
           </p>
 
-          {/* CATEGORY BADGE */}
           {selectedMail.category && (
-            <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${selectedMail.category === "Unprocessed"
-                ? "bg-gray-200 text-gray-700"
-                : selectedMail.category === "Work"
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-purple-100 text-purple-700"
+            <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${selectedMail.category === "Unprocessed" ? "bg-gray-200 text-gray-700" :
+                selectedMail.category === "Work" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
               }`}>
               {selectedMail.category}
             </span>
@@ -98,7 +86,7 @@ export default function MailView() {
         </div>
       </div>
 
-      {/* ===== AI ACTION BUTTONS ===== */}
+      {/* ACTION BUTTONS */}
       <div className="flex gap-3 mb-8 flex-wrap">
         <button
           onClick={handleSummarize}
@@ -127,32 +115,24 @@ export default function MailView() {
         </button>
       </div>
 
-      {/* ===== AI SUMMARY DISPLAY ===== */}
+      {/* AI DISPLAYS */}
       {selectedMail.summary && (
         <div className="mb-6 bg-white border-l-4 border-indigo-500 p-6 rounded-r-xl shadow-sm animate-in fade-in slide-in-from-left-2">
           <h4 className="font-bold mb-2 text-indigo-700 flex items-center gap-2 text-xs uppercase tracking-widest">
-            <Sparkles size={14} />
-            AI Summary
+            <Sparkles size={14} /> AI Summary
           </h4>
           <p className="text-gray-700 text-sm leading-relaxed">{selectedMail.summary}</p>
         </div>
       )}
 
-      {/* ===== AI DRAFT DISPLAY ===== */}
       {selectedMail.ai_draft && (
         <div className="mb-6 bg-white border-l-4 border-emerald-500 p-6 rounded-r-xl shadow-sm animate-in fade-in slide-in-from-left-2">
           <h4 className="font-bold mb-2 text-emerald-700 flex items-center gap-2 text-xs uppercase tracking-widest">
-            <MessageSquare size={14} />
-            AI Draft Reply
+            <MessageSquare size={14} /> AI Draft Reply
           </h4>
-          <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap mb-4 italic">
-            "{selectedMail.ai_draft}"
-          </p>
+          <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap mb-4 italic italic">"{selectedMail.ai_draft}"</p>
           <button
-            onClick={() => {
-              setReply(selectedMail.ai_draft);
-              setShowReplyBox(true);
-            }}
+            onClick={() => { setReply(selectedMail.ai_draft); setShowReplyBox(true); }}
             className="text-xs font-bold text-emerald-600 hover:text-emerald-800 underline uppercase"
           >
             Edit and use this draft
@@ -160,19 +140,18 @@ export default function MailView() {
         </div>
       )}
 
-      {/* ===== EMAIL BODY ===== */}
+      {/* MAIN BODY */}
       <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 mb-8 min-h-[200px]">
         <div className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">
           {displayBody}
         </div>
       </div>
 
-      {/* ===== REPLY BOX ===== */}
+      {/* REPLY BOX */}
       {reply && showReplyBox && (
         <div className="bg-white border border-blue-100 p-6 rounded-2xl shadow-xl animate-in zoom-in-95">
           <h4 className="font-bold mb-4 text-blue-700 text-xs uppercase tracking-widest flex items-center gap-2">
-            <Send size={14} />
-            Your Response
+            <Send size={14} /> Your Response
           </h4>
           <textarea
             value={reply}
@@ -182,17 +161,14 @@ export default function MailView() {
           />
           <div className="flex gap-2">
             <button
-              onClick={() => {
-                openCompose();
-                setShowReplyBox(false);
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full text-xs font-bold transition-all"
+              onClick={() => { openCompose(); setShowReplyBox(false); }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full text-xs font-bold"
             >
               Confirm & Send
             </button>
             <button
               onClick={() => setShowReplyBox(false)}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-500 px-6 py-2 rounded-full text-xs font-bold transition-all"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-500 px-6 py-2 rounded-full text-xs font-bold"
             >
               Discard
             </button>

@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// 1. Precise CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -9,12 +8,8 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req: Request) => {
-  // 2. IMMEDIATE Preflight Handle (Fixes the CORS error)
   if (req.method === "OPTIONS") {
-    return new Response("ok", { 
-      status: 200, 
-      headers: corsHeaders 
-    });
+    return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -25,8 +20,6 @@ Deno.serve(async (req: Request) => {
 
     const url = new URL(req.url);
     const payload = await req.json();
-
-    // Check if path is for AI Assistant (Manual Trigger) or Inbound (Resend Webhook)
     const isAiRequest = url.pathname.endsWith('/summarize') || url.pathname.endsWith('/generate-reply');
 
     if (isAiRequest) {
@@ -36,7 +29,6 @@ Deno.serve(async (req: Request) => {
       const { email_id } = payload;
       const isSummarize = url.pathname.endsWith('/summarize');
 
-      // Fetch email body
       const { data: emailData, error: fetchError } = await supabase
         .from("emails")
         .select("body")
@@ -45,7 +37,6 @@ Deno.serve(async (req: Request) => {
 
       if (fetchError || !emailData) throw new Error("Email content not found");
 
-      // Groq AI Integration
       const groqApiKey = Deno.env.get("GROQ_API_KEY");
       const prompt = isSummarize 
         ? `Summarize this email concisely in 3 bullet points: ${emailData.body}`
@@ -64,11 +55,8 @@ Deno.serve(async (req: Request) => {
       });
 
       const groqData = await groqResponse.json();
-      if (!groqData.choices) throw new Error("AI Generation failed");
-      
       const aiContent = groqData.choices[0].message.content;
 
-      // Update Database
       const updateData = isSummarize ? { summary: aiContent } : { ai_draft: aiContent };
       const { error: updateError } = await supabase
         .from("emails")
@@ -84,10 +72,14 @@ Deno.serve(async (req: Request) => {
 
     } else {
       /**
-       * CASE B: INBOUND WEBHOOK (Your original logic)
+       * CASE B: INBOUND WEBHOOK (Resend)
+       * FIXED: Robust body extraction to solve "No Content" issue
        */
       const email = payload.data;
       if (!email) throw new Error("No data found in webhook payload");
+
+      // Extract body from any available field Resend might use
+      const capturedBody = email.text || email.body || email.html || "No content found in payload";
 
       const extractEmail = (str: any) =>
         typeof str === "string"
@@ -102,7 +94,7 @@ Deno.serve(async (req: Request) => {
           sender: extractEmail(email.from),
           recipient: extractEmail(recipientRaw),
           subject: email.subject || "No Subject",
-          body: email.text || email.html || "",
+          body: capturedBody, // Now mapped correctly
           folder: "Inbox",
           processed: false,
         },
@@ -116,7 +108,6 @@ Deno.serve(async (req: Request) => {
       });
     }
   } catch (err: any) {
-    console.error("Function Error:", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
