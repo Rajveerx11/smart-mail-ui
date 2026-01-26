@@ -145,7 +145,7 @@ export const useMailStore = create((set, get) => ({
   generateAISummary: async (emailId) => {
     set({ isAnalyzing: true });
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiUrl = 'https://lkeprbnwvmcggaxlizls.supabase.co/functions/v1/ai-assistant';
       const response = await fetch(`${apiUrl}/summarize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
