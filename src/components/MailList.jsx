@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import { useMailStore } from "../store/mailStore";
-// Import any other UI components you use here (e.g., MailItem)
 
-// 1. ADD 'default' TO THE FUNCTION DEFINITION
 export default function MailList() {
   const mails = useMailStore((s) => s.mails);
   const activeFolder = useMailStore((s) => s.activeFolder);
   const searchText = useMailStore((s) => s.searchText);
   const fetchMails = useMailStore((s) => s.fetchMails);
+  const setSelectedMail = useMailStore((s) => s.setSelectedMail);
+  const selectedMail = useMailStore((s) => s.selectedMail);
 
   useEffect(() => {
     fetchMails();
@@ -32,10 +32,17 @@ export default function MailList() {
         <div className="p-8 text-center text-gray-500">No messages found.</div>
       ) : (
         filteredMails.map((mail) => (
-          <div key={mail.id} className="border-b hover:bg-gray-50 cursor-pointer p-4">
-            {/* Replace this with your actual MailItem component or markup */}
-            <div className="font-semibold">{mail.sender}</div>
-            <div className="text-sm text-gray-600">{mail.subject}</div>
+          <div
+            key={mail.id}
+            className={`border-b hover:bg-gray-100 cursor-pointer p-4 transition-colors ${selectedMail?.id === mail.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+              }`}
+            onClick={() => setSelectedMail(mail)}
+          >
+            <div className={`font-semibold ${!mail.read_status ? 'text-gray-900' : 'text-gray-600'}`}>
+              {mail.sender}
+            </div>
+            <div className="text-sm text-gray-600 truncate">{mail.subject}</div>
+            <div className="text-xs text-gray-400 truncate mt-1">{mail.body?.slice(0, 80)}...</div>
           </div>
         ))
       )}

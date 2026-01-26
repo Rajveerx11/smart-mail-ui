@@ -7,8 +7,7 @@ export const useMailStore = create((set, get) => ({
   isLoading: false,
   error: null,
   subscription: null,
-
-  searchHistory: [], // Initialized as empty
+  searchHistory: [],
 
   /* ===== USER AUTH ===== */
   user: null,
@@ -30,7 +29,8 @@ export const useMailStore = create((set, get) => ({
     }
   },
 
-  // Real-time Listener for Agent responses
+  // Real-time Listener: This will automatically update the UI 
+  // when the AI Agent saves the Summary or Draft to Supabase.
   subscribeToMails: () => {
     const channel = supabase
       .channel('realtime_emails')
@@ -43,13 +43,14 @@ export const useMailStore = create((set, get) => ({
             set((s) => ({ mails: [payload.new, ...s.mails] }));
           } else if (payload.eventType === 'UPDATE') {
             set((s) => ({
-              mails: s.mails.map(m => m.id === payload.new.id ? payload.new : m)
+              mails: s.mails.map(m => m.id === payload.new.id ? payload.new : m),
+              // Update selectedMail if it's the one currently open
+              selectedMail: get().selectedMail?.id === payload.new.id ? payload.new : get().selectedMail
             }));
           }
         }
       )
       .subscribe((status) => {
-        // Subscription status handler
         console.log("Subscription status:", status);
       });
     return channel;
@@ -72,10 +73,7 @@ export const useMailStore = create((set, get) => ({
   selectedMail: null,
   setSelectedMail: async (mail) => {
     set({ selectedMail: mail });
-    // Mark as read when selected
-    // Note: mail.read_status might be the key now if we are using raw Supabase data
     if (mail && !mail.read_status && !mail.readStatus) {
-      // Handle both cases just to be safe, though likely read_status
       try {
         const { error } = await supabase
           .from('emails')
@@ -84,7 +82,6 @@ export const useMailStore = create((set, get) => ({
 
         if (error) throw error;
 
-        // Update local state
         set((s) => ({
           mails: s.mails.map((m) =>
             m.id === mail.id ? { ...m, read_status: true, readStatus: true } : m
@@ -123,10 +120,6 @@ export const useMailStore = create((set, get) => ({
   sendMail: async (mailData) => {
     set({ isSending: true });
     const { user } = get();
-    // Support both direct object pass or arg check (HEAD vs Incoming difference)
-    // Incoming passed `mailData`, HEAD passed `mail`
-
-    // We'll use the Incoming implementation style (Direct Insert) but wrapped with loading state
     const { error } = await supabase.from('emails').insert([{
       sender: user?.email || "anonymous@bodhakai.online",
       recipient: mailData.to,
@@ -134,7 +127,7 @@ export const useMailStore = create((set, get) => ({
       body: mailData.body,
       processed: false,
       folder: "Sent",
-      message_id: crypto.randomUUID() // Ensure native crypto or uuid lib
+      message_id: crypto.randomUUID()
     }]);
 
     if (error) {
@@ -145,32 +138,47 @@ export const useMailStore = create((set, get) => ({
     set({ isSending: false });
   },
 
-  /* ===== AI ANALYSIS ===== */
+  /* ===== ON-DEMAND AI COPILOT ===== */
   isAnalyzing: false,
 
-  triggerAnalysis: async (emailId) => {
+  // Function 1: Manual Summarization Trigger
+  generateAISummary: async (emailId) => {
     set({ isAnalyzing: true });
     try {
-      // We can keep using the service for this specific call if it exists, 
-      // or just rely on the backend being generic. 
-      // For now, let's assuming fetch still works if we import it, 
-      // but to be safe/consistent with this file, let's just make the fetch call here 
-      // or assume the user wants us to use the service if imported.
-      // Since I removed the service import to match 'Incoming', I should implement it here or re-import.
-      // Re-implementing simplified version:
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/analyze-on-demand`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/summarize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email_id: emailId }),
       });
-      if (!response.ok) throw new Error('Analysis failed');
+      if (!response.ok) throw new Error('Summarization failed');
 
-      // The real-time subscription will update the email when analysis completes
-      set({ isAnalyzing: false });
+      // Success: The real-time listener will update the local state 
+      // when the backend writes the result to Supabase.
     } catch (error) {
-      console.error("Failed to trigger analysis:", error);
+      console.error("❌ Summary Generation Failed:", error);
+    } finally {
       set({ isAnalyzing: false });
-      throw error;
+    }
+  },
+
+  // Function 2: Manual Draft Generation Trigger
+  generateAIDraft: async (emailId) => {
+    set({ isAnalyzing: true });
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/generate-reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_id: emailId }),
+      });
+      if (!response.ok) throw new Error('Draft generation failed');
+
+      // Success: UI updates via subscribeToMails.
+    } catch (error) {
+      console.error("❌ Draft Generation Failed:", error);
+    } finally {
+      set({ isAnalyzing: false });
     }
   },
 
@@ -179,10 +187,8 @@ export const useMailStore = create((set, get) => ({
     const { mails, activeFolder, searchText } = get();
 
     return mails.filter((m) => {
-      // Basic folder routing from Incoming
       if (m.folder !== activeFolder) return false;
 
-      // Real-time search filter
       if (searchText) {
         const textStr = `${m.sender || ''} ${m.subject || ''} ${m.body || ''}`.toLowerCase();
         if (!textStr.includes(searchText.toLowerCase())) return false;

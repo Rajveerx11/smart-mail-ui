@@ -1,38 +1,49 @@
-import { useState } from "react"; // Removed useRef, useEffect as we are using HEAD logic which didn't use them (or handled it differently)
-import { Sparkles, Send, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Sparkles, Send, Loader2, MessageSquare } from "lucide-react";
 import { useMailStore } from "../store/mailStore";
 
 export default function MailView() {
   const selectedMail = useMailStore((s) => s.selectedMail);
-  const triggerAnalysis = useMailStore((s) => s.triggerAnalysis);
   const isAnalyzing = useMailStore((s) => s.isAnalyzing);
   const openCompose = useMailStore((s) => s.openCompose);
+  const generateAISummary = useMailStore((s) => s.generateAISummary);
+  const generateAIDraft = useMailStore((s) => s.generateAIDraft);
 
   const [reply, setReply] = useState("");
   const [showReplyBox, setShowReplyBox] = useState(false);
 
   if (!selectedMail) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-        Select an email to explore AI insights
+      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-sm bg-gradient-to-br from-slate-50 to-slate-100">
+        <Sparkles size={48} className="mb-4 text-gray-300" />
+        <p>Select an email to explore AI insights</p>
       </div>
     );
   }
 
   /* ===== AI SUMMARY (from backend) ===== */
-  const handleAnalyze = async () => {
+  const handleSummarize = async () => {
     try {
-      await triggerAnalysis(selectedMail.id);
+      await generateAISummary(selectedMail.id);
     } catch (error) {
-      console.error("Analysis failed:", error);
+      console.error("Summarization failed:", error);
     }
   };
 
-  /* ===== AI SMART REPLY (local demo) ===== */
-  const generateReply = () => {
+  /* ===== AI DRAFT (from backend) ===== */
+  const handleGenerateDraft = async () => {
+    try {
+      await generateAIDraft(selectedMail.id);
+    } catch (error) {
+      console.error("Draft generation failed:", error);
+    }
+  };
+
+  /* ===== LOCAL SMART REPLY (demo) ===== */
+  const generateLocalReply = () => {
     const replies = [
       "Thanks for the update.",
-      "Noted, I’ll review.",
+      "Noted, I'll review.",
       "Received with thanks.",
       "Appreciate the information.",
     ];
@@ -41,7 +52,7 @@ export default function MailView() {
   };
 
   return (
-    <div className="flex-1 p-10 bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="flex-1 p-10 bg-gradient-to-br from-slate-50 to-slate-100 overflow-y-auto">
 
       {/* HEADER */}
       <h2 className="text-2xl font-semibold text-gray-900">
@@ -49,10 +60,10 @@ export default function MailView() {
       </h2>
       <div className="flex items-center gap-2 mb-6 mt-1">
         <p className="text-sm text-gray-600">
-          From: {selectedMail.from || selectedMail.sender} {/* Fallback for sender field naming */}
+          From: {selectedMail.from || selectedMail.sender}
         </p>
 
-        {/* FROM + CATEGORY BADGE */}
+        {/* CATEGORY BADGE */}
         {selectedMail.category && (
           <span className={`text-xs px-2 py-0.5 rounded ${selectedMail.category === "Unprocessed"
             ? "bg-gray-100 text-gray-600"
@@ -69,83 +80,127 @@ export default function MailView() {
         )}
       </div>
 
-      {/* AI SUMMARY CARD (if exists) */}
-      {selectedMail.summary && (
-        <div className="mb-4 bg-gradient-to-br from-purple-600 to-indigo-600
-        text-white p-4 rounded-xl shadow">
-          <h4 className="font-semibold mb-1 flex items-center gap-2">
-            <Sparkles size={16} />
-            AI Summary
-          </h4>
-          <p className="text-sm">{selectedMail.summary}</p>
-        </div>
-      )}
-
-      {/* BODY */}
-      <div className="prose text-sm text-gray-700 mb-8 whitespace-pre-wrap">
-        {selectedMail.body}
-      </div>
-
-      {/* AI ACTION BUTTONS */}
-      <div className="flex gap-4 mb-6">
+      {/* ===== AI ACTION BUTTONS ===== */}
+      <div className="flex gap-3 mb-6 flex-wrap">
         <button
-          onClick={handleAnalyze}
+          onClick={handleSummarize}
           disabled={isAnalyzing}
-          className="flex items-center gap-2 px-5 py-2 rounded-full
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full
           bg-gradient-to-r from-purple-500 to-indigo-500
-          text-white text-sm font-medium shadow hover:scale-105 transition
-          disabled:opacity-50 disabled:cursor-not-allowed"
+          text-white text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all
+          disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
           {isAnalyzing ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              Analyzing...
+              Processing...
             </>
           ) : (
             <>
               <Sparkles size={16} />
-              {selectedMail.summary ? "Re-Analyze" : "AI Summarize"}
+              {selectedMail.summary ? "Re-Summarize" : "Summarize with AI"}
             </>
           )}
         </button>
 
         <button
-          onClick={generateReply}
-          className="flex items-center gap-2 px-5 py-2 rounded-full
-          bg-gradient-to-r from-green-500 to-emerald-500
-          text-white text-sm font-medium shadow hover:scale-105 transition"
+          onClick={handleGenerateDraft}
+          disabled={isAnalyzing}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full
+          bg-gradient-to-r from-emerald-500 to-teal-500
+          text-white text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all
+          disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+        >
+          {isAnalyzing ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <MessageSquare size={16} />
+              {selectedMail.ai_draft ? "Regenerate AI Reply" : "Generate AI Reply"}
+            </>
+          )}
+        </button>
+
+        <button
+          onClick={generateLocalReply}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-full
+          bg-gradient-to-r from-blue-500 to-cyan-500
+          text-white text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all"
         >
           <Send size={16} />
-          Smart Reply
+          Quick Reply
         </button>
       </div>
 
-      {/* AI REPLY CARD */}
+      {/* ===== AI SUMMARY DISPLAY ===== */}
+      {selectedMail.summary && (
+        <div className="mb-4 bg-gradient-to-br from-purple-600 to-indigo-600
+        text-white p-5 rounded-xl shadow-lg">
+          <h4 className="font-semibold mb-2 flex items-center gap-2 text-purple-100">
+            <Sparkles size={18} />
+            AI Summary
+          </h4>
+          <p className="text-sm leading-relaxed">{selectedMail.summary}</p>
+        </div>
+      )}
+
+      {/* ===== AI DRAFT DISPLAY ===== */}
+      {selectedMail.ai_draft && (
+        <div className="mb-4 bg-gradient-to-br from-emerald-600 to-teal-600
+        text-white p-5 rounded-xl shadow-lg">
+          <h4 className="font-semibold mb-2 flex items-center gap-2 text-emerald-100">
+            <MessageSquare size={18} />
+            AI Draft Reply
+          </h4>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{selectedMail.ai_draft}</p>
+          <button
+            onClick={() => {
+              setReply(selectedMail.ai_draft);
+              setShowReplyBox(true);
+            }}
+            className="mt-3 bg-white/20 hover:bg-white/30 text-white px-4 py-1.5 rounded-full text-sm transition-colors"
+          >
+            Use this draft
+          </button>
+        </div>
+      )}
+
+      {/* ===== EMAIL BODY ===== */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 mb-6">
+        <div className="prose text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+          {selectedMail.body}
+        </div>
+      </div>
+
+      {/* ===== LOCAL REPLY CARD ===== */}
       {reply && showReplyBox && (
-        <div className="bg-white border-l-4 border-green-500 p-4 rounded shadow mb-4">
-          <h4 className="font-medium mb-2 text-green-600">
-            Suggested Reply
+        <div className="bg-white border-l-4 border-blue-500 p-5 rounded-xl shadow-md mb-4">
+          <h4 className="font-medium mb-3 text-blue-600 flex items-center gap-2">
+            <Send size={16} />
+            Your Reply
           </h4>
           <textarea
             value={reply}
             onChange={(e) => setReply(e.target.value)}
-            className="w-full border rounded p-2 text-sm text-gray-800 mb-2"
-            rows={3}
+            className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-800 mb-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            rows={4}
           />
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               onClick={() => {
                 openCompose();
-                // Pre-fill compose with reply (would need store update or prop pass, ignoring for now as per HEAD)
                 setShowReplyBox(false);
               }}
-              className="bg-blue-600 text-white px-4 py-1 rounded text-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors"
             >
               Send Reply
             </button>
             <button
               onClick={() => setShowReplyBox(false)}
-              className="bg-gray-200 text-gray-700 px-4 py-1 rounded text-sm"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2 rounded-full text-sm font-medium transition-colors"
             >
               Cancel
             </button>
