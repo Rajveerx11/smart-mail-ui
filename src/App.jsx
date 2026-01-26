@@ -15,17 +15,42 @@ import SplashScreen from "./components/SplashScreen";
 import LoginPage from "./components/LoginPage";
 
 export default function App() {
-  const [step, setStep] = useState("splash"); 
-  // splash → login → app
+  // 🔹 App states
+  const [step, setStep] = useState("splash"); // splash → login → app
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // user login status
 
+  // 🔹 Called when splash animation finishes
+  const handleSplashFinish = () => {
+    if (isLoggedIn) {
+      setStep("app");    // go directly to main app
+    } else {
+      setStep("login");  // show login page
+    }
+  };
+
+  // 🔹 Called after login is successful
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+    setStep("app");      // go to main app
+  };
+
+  // 🔹 Splash screen step
   if (step === "splash") {
-    return <SplashScreen onContinue={() => setStep("login")} />;
+    return (
+      <SplashScreen
+        isLoggedIn={isLoggedIn}
+        onLogin={() => setStep("login")}  // user clicks login
+        onFinishSplash={handleSplashFinish} // animation ends
+      />
+    );
   }
 
+  // 🔹 Login page step
   if (step === "login") {
-    return <LoginPage onLogin={() => setStep("app")} />;
+    return <LoginPage onLogin={handleLogin} />;
   }
 
+  // 🔹 Main dashboard step
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       <Topbar />

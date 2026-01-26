@@ -5,6 +5,11 @@ export const useMailStore = create((set, get) => ({
   /* ===== MAIL DATA ===== */
   mails: initialMails,
 
+  refreshMails: () =>
+    set((s) => ({
+      mails: [...s.mails],
+    })),
+
   /* ===== USER AUTH ===== */
   user: {
     name: "Marco",
@@ -27,7 +32,7 @@ export const useMailStore = create((set, get) => ({
   openSignOut: () => set({ isSignOutOpen: true }),
   closeSignOut: () => set({ isSignOutOpen: false }),
 
-  /* 🔹 MANAGE ACCOUNT (FIX) */
+  /* 🔹 MANAGE ACCOUNT */
   isManageAccountOpen: false,
   openManageAccount: () => set({ isManageAccountOpen: true }),
   closeManageAccount: () => set({ isManageAccountOpen: false }),
@@ -38,7 +43,14 @@ export const useMailStore = create((set, get) => ({
     set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
 
   activeFolder: "Inbox",
-  setActiveFolder: (f) => set({ activeFolder: f }),
+
+  // ✅ FIXED HERE
+  setActiveFolder: (f) =>
+    set({
+      activeFolder: f,
+      activeCategory: f === "Inbox" ? "Primary" : null,
+      selectedMail: null,
+    }),
 
   activeCategory: "Primary",
   setActiveCategory: (c) => set({ activeCategory: c }),
@@ -96,42 +108,27 @@ export const useMailStore = create((set, get) => ({
         {
           id: Date.now(),
           folder: "Sent",
-          category: "",
+          category: "Primary",
           ...mail,
         },
         ...s.mails,
       ],
     })),
 
-  /* ===== FILTER MAILS (UNCHANGED) ===== */
+  /* ===== FILTER MAILS ===== */
   getFilteredMails: () => {
-    const {
-      mails,
-      activeFolder,
-      activeCategory,
-      searchText,
-    } = get();
+    const { mails, activeFolder, activeCategory, searchText } = get();
 
     return mails.filter((m) => {
-      if (activeFolder === "Spam") {
-        if (!m.isSpam) return false;
-      } else {
-        if (m.folder !== activeFolder) return false;
-        if (m.isSpam) return false;
-      }
+      if (m.folder !== activeFolder) return false;
 
-      if (
-        activeFolder === "Inbox" &&
-        activeCategory !== "Primary" &&
-        m.category !== activeCategory
-      ) {
-        return false;
+      if (activeFolder === "Inbox") {
+        if (m.category !== activeCategory) return false;
       }
 
       if (searchText) {
         const text = `${m.from} ${m.subject} ${m.body}`.toLowerCase();
-        if (!text.includes(searchText.toLowerCase()))
-          return false;
+        if (!text.includes(searchText.toLowerCase())) return false;
       }
 
       return true;

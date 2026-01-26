@@ -1,12 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import {
-  Sparkles,
-  Send,
-} from "lucide-react";
+import { Sparkles, Send } from "lucide-react";
 import { useMailStore } from "../store/mailStore";
 
 export default function MailView() {
   const selectedMail = useMailStore((s) => s.selectedMail);
+  const activeFolder = useMailStore((s) => s.activeFolder);
 
   const [summary, setSummary] = useState("");
   const [reply, setReply] = useState("");
@@ -17,17 +15,11 @@ export default function MailView() {
   /* CLOSE BOX ON OUTSIDE CLICK */
   useEffect(() => {
     const handler = (e) => {
-      if (
-        summaryRef.current &&
-        !summaryRef.current.contains(e.target)
-      ) {
+      if (summaryRef.current && !summaryRef.current.contains(e.target)) {
         setSummary("");
       }
 
-      if (
-        replyRef.current &&
-        !replyRef.current.contains(e.target)
-      ) {
+      if (replyRef.current && !replyRef.current.contains(e.target)) {
         setReply("");
       }
     };
@@ -36,12 +28,19 @@ export default function MailView() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  /* 🔥 IMPORTANT FIX */
   if (!selectedMail) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-        Select an email to explore AI insights
-      </div>
-    );
+    // Inbox → show message
+    if (activeFolder === "Inbox") {
+      return (
+        <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+          Select an email to explore AI insights
+        </div>
+      );
+    }
+
+    // Sent / Spam → blank dashboard
+    return <div className="flex-1" />;
   }
 
   const generateSummary = () => {
@@ -60,10 +59,8 @@ export default function MailView() {
 
   return (
     <div className="flex-1 p-10 bg-gradient-to-br from-slate-50 to-slate-100">
-
       {/* CENTER CONTENT */}
       <div className="max-w-[520px]">
-
         {/* HEADER */}
         <h2 className="text-2xl font-semibold text-gray-900">
           {selectedMail.subject}
@@ -103,8 +100,7 @@ export default function MailView() {
             ref={summaryRef}
             className="mb-4 w-fit max-w-[360px]
             bg-white rounded-2xl shadow-lg
-            px-5 py-4 text-sm text-gray-700
-            animate-[fadeInScale_0.25s_ease-out]"
+            px-5 py-4 text-sm text-gray-700"
           >
             <div className="flex items-center gap-2 mb-1 text-purple-600 font-medium">
               <Sparkles size={14} />
@@ -120,8 +116,7 @@ export default function MailView() {
             ref={replyRef}
             className="w-fit max-w-[360px]
             bg-white rounded-2xl shadow-lg
-            px-5 py-4 text-sm text-gray-800
-            animate-[fadeInScale_0.25s_ease-out]"
+            px-5 py-4 text-sm text-gray-800"
           >
             <div className="flex items-center gap-2 mb-1 text-emerald-600 font-medium">
               <Send size={14} />
@@ -130,7 +125,6 @@ export default function MailView() {
             {reply}
           </div>
         )}
-
       </div>
     </div>
   );

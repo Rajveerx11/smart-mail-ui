@@ -39,7 +39,7 @@ export default function LoginPage({ onLogin }) {
 
         {/* EXTRA */}
         <p className="text-xs text-gray-500 text-center mt-4">
-          This is a demo login screen
+         
         </p>
       </div>
     </div>

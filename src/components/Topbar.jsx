@@ -4,11 +4,12 @@ import {
   SlidersHorizontal,
   X,
   Clock,
+  RotateCw,
 } from "lucide-react";
 import { useMailStore } from "../store/mailStore";
 import { useEffect, useRef, useState } from "react";
 import logo from "../assets/Axon.png";
-import ProfileMenu from "./profileMenu"; // ✅ ADD THIS
+import ProfileMenu from "./profileMenu";
 
 export default function Topbar() {
   const {
@@ -23,6 +24,7 @@ export default function Topbar() {
     isProfileOpen,
     toggleProfile,
     closeProfile,
+    refreshMails, // ✅ ADDED
   } = useMailStore();
 
   const inputRef = useRef(null);
@@ -66,6 +68,7 @@ export default function Topbar() {
         <div className="relative w-[480px]">
           <div className="flex items-center gap-3 bg-gray-100 px-4 py-2 rounded-full">
             <Search size={18} />
+
             <input
               ref={inputRef}
               value={searchText}
@@ -75,11 +78,22 @@ export default function Topbar() {
               placeholder="Search mail"
               className="bg-transparent outline-none flex-1 text-sm"
             />
+
             {searchText && (
               <button onClick={clearSearch}>
                 <X size={16} />
               </button>
             )}
+
+            {/* 🔄 DASHBOARD REFRESH ONLY */}
+            <button
+              onClick={refreshMails}
+              title="Refresh mails"
+              className="hover:text-blue-600 transition"
+            >
+              <RotateCw size={18} />
+            </button>
+
             <button onClick={openSearchPanel}>
               <SlidersHorizontal size={18} />
             </button>
@@ -120,7 +134,6 @@ export default function Topbar() {
           {user.name.charAt(0)}
         </button>
 
-        {/* HOVER TOOLTIP */}
         {showHoverProfile && !isProfileOpen && (
           <div className="absolute right-0 mt-2 w-60
             bg-gray-800 text-white text-sm
@@ -131,13 +144,9 @@ export default function Topbar() {
             <p className="text-xs opacity-70">{user.email}</p>
           </div>
         )}
-      
 
-        {/* 🔥 THIS WAS MISSING */}
         {isProfileOpen && <ProfileMenu />}
-        
       </div>
     </div>
-    
   );
 }
