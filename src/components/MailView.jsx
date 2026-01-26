@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sparkles, Send, Loader2, MessageSquare } from "lucide-react";
 import { useMailStore } from "../store/mailStore";
 
@@ -12,6 +12,13 @@ export default function MailView() {
   const [reply, setReply] = useState("");
   const [showReplyBox, setShowReplyBox] = useState(false);
 
+  // Debug: Check exactly what the data object looks like in the browser console
+  useEffect(() => {
+    if (selectedMail) {
+      console.log("DEBUG: Current Selected Mail Object:", selectedMail);
+    }
+  }, [selectedMail]);
+
   if (!selectedMail) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-sm bg-gradient-to-br from-slate-50 to-slate-100">
@@ -21,9 +28,18 @@ export default function MailView() {
     );
   }
 
-  // Helper to ensure we always show something in the body, 
-  // checking all possible fields provided by the webhook.
-  const displayBody = selectedMail.body || selectedMail.text || selectedMail.html || "No message content available.";
+  /**
+   * ROBUST BODY RESOLUTION:
+   * We check every possible key that might contain the message body 
+   * to fix the "No content available" issue.
+   */
+  const displayBody =
+    selectedMail.body ||       // Standard lowercase
+    selectedMail.Body ||       // Capitalized (Supabase default sometimes)
+    selectedMail.text ||       // Resend raw text
+    selectedMail.html ||       // Resend raw HTML
+    selectedMail.content ||    // Alternative name
+    "No message content available in the database.";
 
   /* ===== AI SUMMARY ===== */
   const handleSummarize = async () => {
