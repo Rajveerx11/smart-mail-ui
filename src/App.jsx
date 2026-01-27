@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import Topbar from "./components/Topbar";
 import Sidebar from "./components/Sidebar";
@@ -15,42 +15,45 @@ import SplashScreen from "./components/SplashScreen";
 import LoginPage from "./components/LoginPage";
 
 export default function App() {
-  // 🔹 App states
-  const [step, setStep] = useState("splash"); // splash → login → app
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // user login status
+  // 🔹 Persisted login state
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    () => localStorage.getItem("isLoggedIn") === "true"
+  );
 
-  // 🔹 Called when splash animation finishes
+  const [step, setStep] = useState("splash"); // splash | login | app
+
+  // 🔹 Splash animation finished
   const handleSplashFinish = () => {
     if (isLoggedIn) {
-      setStep("app");    // go directly to main app
-    } else {
-      setStep("login");  // show login page
+      setStep("app"); // ✅ AUTO DASHBOARD
     }
+    // ❌ else stay on splash (login button visible)
   };
 
-  // 🔹 Called after login is successful
+  // 🔹 Login success
   const handleLogin = () => {
+    localStorage.setItem("isLoggedIn", "true"); // ✅ persist
     setIsLoggedIn(true);
-    setStep("app");      // go to main app
+    setStep("app");
   };
 
-  // 🔹 Splash screen step
+  // 🔹 Splash Screen
   if (step === "splash") {
     return (
       <SplashScreen
         isLoggedIn={isLoggedIn}
-        onLogin={() => setStep("login")}  // user clicks login
-        onFinishSplash={handleSplashFinish} // animation ends
+        onLogin={() => setStep("login")}
+        onFinishSplash={handleSplashFinish}
       />
     );
   }
 
-  // 🔹 Login page step
+  // 🔹 Login Page
   if (step === "login") {
     return <LoginPage onLogin={handleLogin} />;
   }
 
-  // 🔹 Main dashboard step
+  // 🔹 Main Dashboard
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       <Topbar />

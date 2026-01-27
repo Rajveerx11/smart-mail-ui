@@ -6,77 +6,70 @@ import { useEffect } from "react";
 export default function SplashScreen({ isLoggedIn, onLogin, onFinishSplash }) {
   useEffect(() => {
     const timer = setTimeout(() => {
-      onFinishSplash(); // notify App to switch step
-    }, 2600); // animation duration
+      onFinishSplash();
+    }, 2600);
+
     return () => clearTimeout(timer);
   }, [onFinishSplash]);
 
   return (
     <div className="h-screen bg-white flex items-center justify-center relative overflow-hidden">
 
-      {/* 🔐 LOGIN ICON (only if NOT logged in) */}
+      {/* 🔐 LOGIN BUTTON (ONLY IF NOT LOGGED IN) */}
       {!isLoggedIn && (
         <motion.button
-          onClick={onLogin} // go to login page immediately
-          initial={{ opacity: 0, y: -20 }}
+          onClick={onLogin}
+          initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.8, duration: 0.6 }}
-          whileHover={{
-            scale: 1.15,
-            boxShadow: "0 0 20px rgba(79,70,229,0.6)",
-          }}
+          transition={{ delay: 1.6, duration: 0.5 }}
+          whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
           className="
             absolute top-6 right-6
-            h-11 w-11
+            h-10 w-10
             rounded-full
             flex items-center justify-center
-            bg-gradient-to-br from-indigo-500 to-blue-600
-            text-white
-            shadow-lg
-            animate-pulse
+            bg-indigo-600 text-white
+            shadow-md
           "
-          title="Login"
         >
           <LogIn size={18} />
         </motion.button>
       )}
 
-      {/* 🌟 CENTER CONTENT */}
+      {/* 🌟 CENTER */}
       <div className="flex flex-col items-center">
 
-        {/* LOGO */}
+        {/* LOGO (SMALLER & CLEAN) */}
         <motion.img
           src={logo}
           alt="Axon"
-          className="h-40 w-40 mb-6"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1.3, opacity: 1 }}
-          transition={{ duration: 1.1, ease: "easeOut" }}
+          className="h-24 w-24 mb-4"
+          initial={{ scale: 0.4, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 1, ease: "easeOut" }}
         />
 
-        {/* 🎬 AXON TITLE – BAHUBALI STYLE */}
+        {/* AXON TEXT */}
         <motion.h1
           className="
-            text-6xl font-extrabold tracking-widest
+            text-4xl font-bold tracking-[0.3em]
             text-transparent bg-clip-text
-            bg-gradient-to-r from-indigo-500 via-blue-600 to-purple-600
-            drop-shadow-[0_12px_35px_rgba(79,70,229,0.6)]
+            bg-gradient-to-r from-indigo-500 to-blue-600
           "
-          initial={{ opacity: 0, scale: 0.6, rotateX: -90 }}
-          animate={{ opacity: 1, scale: 1, rotateX: 0 }}
-          transition={{ duration: 1.8, ease: "easeOut" }}
-          style={{ transformPerspective: 1200 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.9, duration: 0.6 }}
         >
           AXON
         </motion.h1>
 
         {/* TAGLINE */}
         <motion.p
-          className="text-gray-500 mt-3 tracking-wide"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.6, duration: 0.8 }}
+          className="text-gray-500 text-sm mt-2 tracking-wide"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.4 }}
         >
           Smart • Secure • AI Powered
         </motion.p>
