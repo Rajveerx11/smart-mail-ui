@@ -42,8 +42,8 @@ Deno.serve(async (req: Request) => {
       const { data: email } = await supabase.from("emails").select("body, subject").eq("id", email_id).single();
       
       const prompt = url.pathname.endsWith('/summarize') 
-        ? `Summarize this email in 3 bullet points. Subject: ${email.subject}. Body: ${email.body}`
-        : `Draft a professional reply to this email. Subject: ${email.subject}. Body: ${email.body}`;
+        ? `Summarize this email in 3 bullet points. Provide ONLY the bullets. No intro text. Subject: ${email.subject}. Body: ${email.body}`
+        : `Draft a professional reply to this email. Provide ONLY the draft content. No intro text. Subject: ${email.subject}. Body: ${email.body}`;
 
       const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
