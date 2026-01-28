@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useMailStore } from "./store/mailStore";
-import { supabase } from "./lib/supabase";
+import { supabase } from "./store/mailStore";
 
+// UI Components
 import Topbar from "./components/Topbar";
 import Sidebar from "./components/Sidebar";
 import MailTabs from "./components/MailTabs";
@@ -14,90 +15,92 @@ import SignOutModal from "./components/SignOutModal";
 import AuthModal from "./components/AuthModal";
 import ManageAccountModal from "./components/ManageAccountModal";
 import LoginPage from "./components/LoginPage";
-import SplashScreen from "./components/SplashScreen";
+
+// NOTE: We no longer import { supabase } here to avoid Multiple Instance warnings.
+// We will use the instance already inside the mailStore.
 
 export default function App() {
-  // Use global state from our store
   const {
     user,
     setUser,
     fetchMails,
     subscribeToMails,
-    isLoading, // Kept heavily requested UI state
-    error      // Kept heavily requested UI state
+    isLoading,
+    error,
+    initializeAuth // We will add this to the store to handle the initial session
   } = useMailStore();
 
   useEffect(() => {
-    let realtimeSubscription = null;
+    let unsubscribeRealtime = null;
 
-    // 1. Check if a user is already logged in on load
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setUser(session.user);
-        fetchMails();
-      }
-    });
+    /**
+     * AUTH INITIALIZATION
+     * We handle session check and auth state changes in one place.
+     */
+    const initApp = async () => {
+      // Use a single helper from the store to handle auth setup
+      const { subscription } = await initializeAuth();
 
-    // 2. Listen for Sign In / Sign Out events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setUser(session.user);
-        fetchMails();
-        // Prevent duplicate subscriptions if one already exists
-        if (!realtimeSubscription) {
-          realtimeSubscription = subscribeToMails();
-        }
-      } else {
-        setUser(null);
-        if (realtimeSubscription) {
-          realtimeSubscription.unsubscribe();
-          realtimeSubscription = null;
-        }
-      }
-    });
+      return subscription;
+    };
+
+    const authPromise = initApp();
+
+    /**
+     * REALTIME INITIALIZATION
+     * Only subscribe if the user exists.
+     */
+    if (user && !unsubscribeRealtime) {
+      unsubscribeRealtime = subscribeToMails();
+    }
 
     return () => {
-      subscription.unsubscribe();
-      if (realtimeSubscription) {
-        realtimeSubscription.unsubscribe();
+      // Cleanup Auth Listener
+      authPromise.then(sub => sub?.unsubscribe());
+
+      // Cleanup Realtime Listener
+      if (unsubscribeRealtime) {
+        unsubscribeRealtime();
       }
     };
-  }, [setUser, fetchMails, subscribeToMails]);
+  }, [user, setUser, fetchMails, subscribeToMails]);
 
-  // Logic for Routing
+  // Routing Logic
   if (!user) {
     return <LoginPage />;
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden font-sans">
       <Topbar />
 
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
 
-        <div className="flex flex-1 flex-col bg-white">
+        <div className="flex flex-1 flex-col bg-white shadow-inner">
           <MailTabs />
 
-          {/* Loading/Error States */}
-          {isLoading && (
-            <div className="flex items-center justify-center p-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              <span className="ml-2 text-gray-500">Loading emails...</span>
-            </div>
-          )}
+          {/* SYSTEM MESSAGES */}
+          <div className="px-4">
+            {isLoading && (
+              <div className="flex items-center gap-3 py-3 text-indigo-600 bg-indigo-50/50 rounded-lg px-4 mt-2 animate-pulse">
+                <div className="h-4 w-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs font-bold uppercase tracking-widest">Syncing Inbox...</span>
+              </div>
+            )}
 
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 m-2">
-              <p className="text-red-700">Error: {error}</p>
-              <button
-                onClick={fetchMails}
-                className="mt-2 text-sm text-red-600 underline"
-              >
-                Retry
-              </button>
-            </div>
-          )}
+            {error && (
+              <div className="flex items-center justify-between py-3 bg-red-50 text-red-700 rounded-lg px-4 mt-2 border border-red-100">
+                <p className="text-xs font-medium">Sync Error: {error}</p>
+                <button
+                  onClick={fetchMails}
+                  className="text-[10px] font-bold uppercase bg-red-600 text-white px-3 py-1 rounded-full hover:bg-red-700 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-1 overflow-hidden">
             <MailList />
@@ -106,6 +109,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* MODALS & OVERLAYS */}
       <ComposeModal />
       <AdvancedSearch />
       <AddAccountModal />
