@@ -8,15 +8,21 @@ const EDGE_URL = `${SUPABASE_URL}/functions/v1/ai-assistant`;
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export const useMailStore = create((set, get) => ({
+  // --- STATE ---
   user: null,
   mails: [],
   selectedMail: null,
-  filter: "Inbox",
+  activeFolder: "Inbox",
+  activeCategory: "Primary",
+  searchText: "",
   isLoading: false,
   isAnalyzing: false,
 
+  // --- ACTIONS ---
   setUser: (user) => set({ user }),
-  setFilter: (filter) => set({ filter, selectedMail: null }),
+  setFolder: (folder) => set({ activeFolder: folder, activeCategory: "Primary", selectedMail: null }),
+  setActiveCategory: (category) => set({ activeCategory: category, selectedMail: null }),
+  setSearchText: (text) => set({ searchText: text }),
   setSelectedMail: (mail) => set({ selectedMail: mail }),
 
   initializeAuth: async () => {
@@ -37,8 +43,13 @@ export const useMailStore = create((set, get) => ({
   fetchMails: async () => {
     if (get().isLoading) return;
     set({ isLoading: true });
-    const { data } = await supabase.from("emails").select("*").order("created_at", { ascending: false });
-    set({ mails: data || [], isLoading: false });
+    const { data, error } = await supabase
+      .from("emails")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error) set({ mails: data || [] });
+    set({ isLoading: false });
   },
 
   sendMail: async (emailData) => {
@@ -50,6 +61,7 @@ export const useMailStore = create((set, get) => ({
     return true;
   },
 
+  // --- AI ACTIONS ---
   generateAISummary: async (id) => {
     set({ isAnalyzing: true });
     const res = await fetch(`${EDGE_URL}/summarize`, {
@@ -80,8 +92,24 @@ export const useMailStore = create((set, get) => ({
     }));
   },
 
+  // --- REAL-TIME SYNC ---
   subscribeToMails: () => {
-    const channel = supabase.channel("mail-changes").on("postgres_changes", { event: "*", schema: "public", table: "emails" }, () => get().fetchMails()).subscribe();
+    const channel = supabase
+      .channel("mail-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "emails" }, (payload) => {
+        // Efficient Update: If a mail body is updated, update only that mail in the list
+        if (payload.eventType === "UPDATE") {
+          set((state) => ({
+            mails: state.mails.map(m => m.id === payload.new.id ? payload.new : m),
+            // Update selected view if it's the one that just got its body
+            selectedMail: state.selectedMail?.id === payload.new.id ? payload.new : state.selectedMail
+          }));
+        } else {
+          // For New Mails (INSERT), refresh the whole list to keep sorting
+          get().fetchMails();
+        }
+      })
+      .subscribe();
     return () => supabase.removeChannel(channel);
   }
 }));

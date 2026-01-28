@@ -9,25 +9,26 @@ const tabs = [
 ];
 
 export default function MailTabs() {
-  const { activeFolder, activeCategory, setActiveCategory } =
-    useMailStore();
+  const activeFolder = useMailStore((s) => s.activeFolder);
+  const activeCategory = useMailStore((s) => s.activeCategory);
+  const setActiveCategory = useMailStore((s) => s.setActiveCategory);
 
+  // Tabs only show when viewing the Inbox
   if (activeFolder !== "Inbox") return null;
 
   return (
-    <div className="border-b bg-white flex">
+    <div className="border-b bg-white flex px-2">
       {tabs.map((t) => (
         <div
           key={t.name}
           onClick={() => setActiveCategory(t.name)}
-          className={`px-6 py-3 cursor-pointer border-b-2 ${
-            activeCategory === t.name
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-600"
-          }`}
+          className={`px-8 py-4 cursor-pointer border-b-2 flex items-center transition-all ${activeCategory === t.name
+              ? "border-indigo-600 text-indigo-600 font-bold"
+              : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+            }`}
         >
-          <t.icon size={16} className="inline mr-2" />
-          {t.name}
+          <t.icon size={16} className={`mr-2 ${activeCategory === t.name ? "text-indigo-600" : "text-gray-400"}`} />
+          <span className="text-xs uppercase tracking-widest">{t.name}</span>
         </div>
       ))}
     </div>
