@@ -23,7 +23,7 @@ Deno.serve(async (req: Request) => {
     const payload = await req.json();
     const apiKey = Deno.env.get("RESEND_API_KEY");
 
-    // --- ROUTE A: SEND EMAIL (From Compose Modal) ---
+    // --- ROUTE A: SEND EMAIL (From UI Compose) ---
     if (url.pathname.endsWith('/send-email')) {
       const { to, subject, body } = payload;
       
@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // --- ROUTE B: AI COPILOT (Summarize / Generate Draft) ---
+    // --- ROUTE B: AI COPILOT (Summarize / Reply) ---
     const isAiRequest = url.pathname.endsWith('/summarize') || url.pathname.endsWith('/generate-reply');
     if (isAiRequest) {
       const { email_id } = payload;
@@ -62,26 +62,24 @@ Deno.serve(async (req: Request) => {
         .eq("id", email_id)
         .single();
 
-      if (fetchError || !email) throw new Error("Email body not found in database for AI processing");
+      if (fetchError || !email) throw new Error("Email content missing for AI processing");
 
+      const groqApiKey = Deno.env.get("GROQ_API_KEY");
       const prompt = isSummarize 
         ? `Summarize this email in 3 bullet points. Subject: ${email.subject}. Body: ${email.body}`
         : `Draft a professional reply to this email. Subject: ${email.subject}. Body: ${email.body}`;
 
-      const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Authorization": `Bearer ${groqApiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
           messages: [{ role: "user", content: prompt }],
         }),
       });
 
-      const groqData = await groqResponse.json();
-      const aiContent = groqData.choices[0].message.content;
+      const gData = await groqRes.json();
+      const aiContent = gData.choices[0].message.content;
 
       const updateField = isSummarize ? { summary: aiContent } : { ai_draft: aiContent };
       await supabase.from("emails").update(updateField).eq("id", email_id);
@@ -96,19 +94,24 @@ Deno.serve(async (req: Request) => {
     if (payload.type === 'email.received') {
       const emailId = payload.data.email_id;
 
-      // FIX: Removed Content-Type from GET request. Added Accept header.
+      /**
+       * RESEND RETRIEVAL FIX
+       * 1. GET method is mandatory.
+       * 2. Content-Type must be REMOVED (GETs have no body).
+       * 3. Accept: application/json tells Resend what we want back.
+       */
       const retrieveRes = await fetch(`https://api.resend.com/emails/received/${emailId}`, {
         method: "GET",
         headers: { 
           "Authorization": `Bearer ${apiKey}`,
-          "Accept": "application/json"
+          "Accept": "application/json" 
         }
       });
       
       const fullEmail = await retrieveRes.json();
       
       if (!retrieveRes.ok) {
-        console.error("RESEND API ERROR:", fullEmail);
+        console.error("CRITICAL RESEND API ERROR:", fullEmail);
         throw new Error(`Resend API Error: ${fullEmail.message}`);
       }
       
@@ -134,11 +137,10 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Fallback for unknown routes
     return new Response(JSON.stringify({ error: "Route not found" }), { status: 404, headers: corsHeaders });
 
   } catch (err: any) {
-    console.error("LOGIC CRASH:", err.message);
+    console.error("EXECUTION ERROR:", err.message);
     return new Response(JSON.stringify({ error: err.message }), { 
       status: 400, 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
