@@ -1,39 +1,38 @@
 import { create } from "zustand";
 import { createClient } from "@supabase/supabase-js";
 
+// --- SINGLETON INITIALIZATION ---
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const EDGE_FUNCTION_BASE_URL = `${SUPABASE_URL}/functions/v1/ai-assistant`;
 
-// Singleton instance to prevent "Multiple GoTrueClient" errors
+// Export this so other components can use the SAME client instance
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export const useMailStore = create((set, get) => ({
-  // --- CORE STATE ---
   user: null,
   mails: [],
   selectedMail: null,
   filter: "Inbox",
   isLoading: false,
   error: null,
-
-  // --- UI STATE ---
   isComposeOpen: false,
   isComposeMinimized: false,
   isAnalyzing: false,
 
-  // --- AUTH ACTIONS ---
   setUser: (user) => set({ user }),
+
+  // Consolidated Auth Logic
   initializeAuth: async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       set({ user: session.user });
       get().fetchMails();
     }
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         set({ user: session.user });
-        get().fetchMails();
+        if (event === 'SIGNED_IN') get().fetchMails();
       } else {
         set({ user: null, mails: [], selectedMail: null });
       }
@@ -41,16 +40,14 @@ export const useMailStore = create((set, get) => ({
     return subscription;
   },
 
-  // --- TAB & FOLDER ACTIONS ---
+  // UI Actions
   setFilter: (filter) => set({ filter, selectedMail: null }),
   setSelectedMail: (mail) => set({ selectedMail: mail }),
-
-  // --- COMPOSE ACTIONS ---
   openCompose: () => set({ isComposeOpen: true, isComposeMinimized: false }),
   closeCompose: () => set({ isComposeOpen: false }),
   toggleMinimize: () => set((s) => ({ isComposeMinimized: !s.isComposeMinimized })),
 
-  // --- DATA ACTIONS ---
+  // Data Actions
   fetchMails: async () => {
     if (get().isLoading) return;
     set({ isLoading: true, error: null });
@@ -81,7 +78,7 @@ export const useMailStore = create((set, get) => ({
     return true;
   },
 
-  // --- AI LOGIC ---
+  // AI Functionality
   generateAISummary: async (emailId) => {
     set({ isAnalyzing: true });
     try {

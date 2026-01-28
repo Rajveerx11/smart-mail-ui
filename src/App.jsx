@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useMailStore } from "./store/mailStore";
 
-// Original UI Imports
+// UI COMPONENTS
 import Topbar from "./components/Topbar";
 import Sidebar from "./components/Sidebar";
 import MailTabs from "./components/MailTabs";
@@ -11,11 +11,25 @@ import ComposeModal from "./components/ComposeModal";
 import AdvancedSearch from "./components/AdvancedSearch";
 import LoginPage from "./components/LoginPage";
 
+// --- THE MISSING IMPORTS FIX ---
+import AddAccountModal from "./components/AddAccountModal";
+import SignOutModal from "./components/SignOutModal";
+import AuthModal from "./components/AuthModal";
+import ManageAccountModal from "./components/ManageAccountModal";
+
 export default function App() {
-  const { user, initializeAuth, subscribeToMails, fetchMails, isLoading } = useMailStore();
+  const {
+    user,
+    initializeAuth,
+    subscribeToMails,
+    fetchMails,
+    isLoading
+  } = useMailStore();
+
   const isInitialized = useRef(false);
 
   useEffect(() => {
+    // Only run this ONCE per page load to prevent infinite loops
     if (isInitialized.current) return;
     isInitialized.current = true;
 
@@ -23,29 +37,34 @@ export default function App() {
     let mailSub = null;
 
     const setup = async () => {
+      // 1. Initialize Auth via Store (Singleton Instance)
       authSub = await initializeAuth();
+
+      // 2. Initialize Realtime Sync
       mailSub = subscribeToMails();
     };
 
     setup();
+
     return () => {
       if (authSub?.unsubscribe) authSub.unsubscribe();
-      if (mailSub) mailSub();
+      if (mailSub) mailSub(); // Cleanup realtime
     };
   }, []);
 
-  if (!user) return <LoginPage />;
+  // Routing Logic
+  if (!user) {
+    return <LoginPage />;
+  }
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       <Topbar />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* THIS WAS MISSING: YOUR ORIGINAL SIDEBAR */}
         <Sidebar />
 
         <div className="flex flex-1 flex-col bg-white">
-          {/* THIS WAS MISSING: YOUR ORIGINAL TABS */}
           <MailTabs />
 
           <div className="flex flex-1 overflow-hidden">
@@ -55,6 +74,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* MODALS SECTION */}
       <ComposeModal />
       <AdvancedSearch />
       <AddAccountModal />
