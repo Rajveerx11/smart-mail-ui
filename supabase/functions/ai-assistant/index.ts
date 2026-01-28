@@ -8,10 +8,7 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req: Request) => {
-  // 1. Handle CORS Preflight (Fixes browser blocked requests)
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const supabase = createClient(
@@ -22,121 +19,75 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const payload = await req.json();
 
-    // --- ROUTE A: SEND EMAIL (From Compose Modal) ---
+    // --- ROUTE A: SEND EMAIL ---
     if (url.pathname.endsWith('/send-email')) {
       const { to, subject, body } = payload;
-      
-      const resendResponse = await fetch("https://api.resend.com/emails", {
+      const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${Deno.env.get("RESEND_API_KEY")}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: "rajveer.vadnal@bodhakai.online", // Ensure this domain is verified in Resend
-          to: to,
-          subject: subject,
-          text: body,
-        }),
+        headers: { "Authorization": `Bearer ${Deno.env.get("RESEND_API_KEY")}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: "rajveer.vadnal@bodhakai.online", to, subject, text: body }),
       });
-
-      const resendData = await resendResponse.json();
-      if (!resendResponse.ok) throw new Error(resendData.message || "Failed to send via Resend");
-
-      return new Response(JSON.stringify({ success: true, id: resendData.id }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify(await res.json()), { headers: corsHeaders });
     }
 
-    // --- ROUTE B: AI COPILOT (Summarize / Generate Draft) ---
+    // --- ROUTE B: AI COPILOT ---
     const isAiRequest = url.pathname.endsWith('/summarize') || url.pathname.endsWith('/generate-reply');
     if (isAiRequest) {
       const { email_id } = payload;
-      const isSummarize = url.pathname.endsWith('/summarize');
+      const { data: email } = await supabase.from("emails").select("*").eq("id", email_id).single();
+      
+      const prompt = url.pathname.endsWith('/summarize') 
+        ? `Summarize this email in 3 bullets: ${email.body}`
+        : `Draft a professional reply to: ${email.body}`;
 
-      const { data: email, error: fetchError } = await supabase
-        .from("emails")
-        .select("body, subject")
-        .eq("id", email_id)
-        .single();
-
-      if (fetchError || !email) throw new Error("Email body not found in database for AI processing");
-
-      const prompt = isSummarize 
-        ? `Summarize this email in 3 bullet points. Subject: ${email.subject}. Body: ${email.body}`
-        : `Draft a professional, concise reply to this email. Subject: ${email.subject}. Body: ${email.body}`;
-
-      const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "user", content: prompt }],
-        }),
+        headers: { "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: prompt }] }),
       });
 
-      const groqData = await groqResponse.json();
-      const aiContent = groqData.choices[0].message.content;
-
-      const updateField = isSummarize ? { summary: aiContent } : { ai_draft: aiContent };
-      await supabase.from("emails").update(updateField).eq("id", email_id);
-
-      return new Response(JSON.stringify({ success: true, data: aiContent }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const gData = await groqRes.json();
+      const content = gData.choices[0].message.content;
+      await supabase.from("emails").update(url.pathname.endsWith('/summarize') ? { summary: content } : { ai_draft: content }).eq("id", email_id);
+      return new Response(JSON.stringify({ success: true, data: content }), { headers: corsHeaders });
     }
 
-    // --- ROUTE C: INBOUND WEBHOOK (From Resend) ---
+    // --- ROUTE C: INBOUND WEBHOOK (THE FIX) ---
     else {
-      const email = payload.data || {};
-      
+      const webhookData = payload.data || {};
+      const emailId = webhookData.email_id;
+
+      if (!emailId) throw new Error("No email_id found in webhook");
+
       /**
-       * ROBUST CONTENT CAPTURE
-       * We check every possible key Resend might use for the body content.
-       * If all content fields are missing, we store the metadata as a fallback.
+       * RESEND DOCS FIX: Call the Retrieve Received Email API
+       * Webhooks only send metadata. We must fetch the body separately
        */
-      const capturedBody = 
-        email.text || 
-        email.html || 
-        email.body || 
-        `DEBUG: Body missing in payload. Metadata: ${JSON.stringify(email).substring(0, 200)}`;
+      const retrieveRes = await fetch(`https://api.resend.com/emails/received/${emailId}`, {
+        headers: { "Authorization": `Bearer ${Deno.env.get("RESEND_API_KEY")}` }
+      });
+      
+      const fullEmail = await retrieveRes.json();
+      
+      const bodyContent = fullEmail.text || fullEmail.html || "No content retrieved from API";
 
       const extractEmail = (str: any) =>
-        typeof str === "string" 
-          ? str.match(/<(.+)>|(\S+@\S+\.\S+)/)?.[0]?.replace(/[<>]/g, "") || str 
-          : str;
+        typeof str === "string" ? str.match(/<(.+)>|(\S+@\S+\.\S+)/)?.[0]?.replace(/[<>]/g, "") || str : str;
 
-      const { error } = await supabase.from("emails").insert([
-        {
-          message_id: email.id || email.message_id || `rec-${Date.now()}`,
-          sender: extractEmail(email.from) || "unknown@sender.com",
-          recipient: (Array.isArray(email.to) ? email.to[0] : email.to) || "unknown@recipient.com",
-          subject: email.subject || "(No Subject)",
-          body: capturedBody, // Mapping fixed to ensure UI sees content
-          raw_json: payload,  // Save full audit trail for debugging
-          folder: "Inbox",
-          processed: false,
-        },
-      ]);
+      const { error } = await supabase.from("emails").insert([{
+        message_id: emailId,
+        sender: extractEmail(fullEmail.from),
+        recipient: extractEmail(fullEmail.to),
+        subject: fullEmail.subject || "(No Subject)",
+        body: bodyContent,
+        raw_json: fullEmail, // Store the full API response for safety
+        folder: "Inbox"
+      }]);
 
       if (error) throw error;
-
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
     }
-
   } catch (err: any) {
-    console.error("CRITICAL ERROR:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: err.message }), { status: 400, headers: corsHeaders });
   }
 });
