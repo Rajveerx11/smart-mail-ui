@@ -15,7 +15,7 @@ export const useMailStore = create((set, get) => ({
   activeCategory: "Primary",
   searchText: "",
   isLoading: false,
-  isRefreshing: false, // For the refresh button feedback
+  isRefreshing: false,
   isAnalyzing: false,
 
   setUser: (user) => set({ user }),
@@ -34,32 +34,41 @@ export const useMailStore = create((set, get) => ({
       if (session) {
         set({ user: session.user });
         get().fetchMails();
-      } else set({ user: null, mails: [] });
+      } else {
+        set({ user: null, mails: [], selectedMail: null });
+      }
     });
     return subscription;
   },
 
-  // --- FETCH & REFRESH ---
+  // --- FETCH & REFRESH WITH DUPLICATE GUARD ---
   fetchMails: async () => {
     if (get().isLoading) return;
     set({ isLoading: true });
-    const { data, error } = await supabase
-      .from("emails")
-      .select("*")
-      .order("created_at", { ascending: false });
 
-    if (!error) set({ mails: data || [] });
-    set({ isLoading: false });
+    try {
+      const { data, error } = await supabase
+        .from("emails")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // FIX: Replace the entire array to avoid appending duplicates on refresh
+      set({ mails: data || [] });
+    } catch (err) {
+      console.error("Fetch error:", err.message);
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   forceRefresh: async () => {
     set({ isRefreshing: true });
     await get().fetchMails();
-    // Artificial delay for smooth UI feedback during demo
     setTimeout(() => set({ isRefreshing: false }), 600);
   },
 
-  // --- SEND EMAIL (FIXED PATH) ---
   sendMail: async (emailData) => {
     const response = await fetch(`${EDGE_URL}/send-email`, {
       method: "POST",
@@ -75,12 +84,10 @@ export const useMailStore = create((set, get) => ({
       throw new Error(errorData.error || "Failed to send email");
     }
 
-    // Refresh sent folder after sending
     get().fetchMails();
     return true;
   },
 
-  // --- AI & REAL-TIME (Kept from previous) ---
   generateAISummary: async (id) => {
     set({ isAnalyzing: true });
     const res = await fetch(`${EDGE_URL}/summarize`, {
@@ -111,10 +118,36 @@ export const useMailStore = create((set, get) => ({
     }));
   },
 
+  // --- SURGICAL REAL-TIME UPDATES ---
   subscribeToMails: () => {
     const channel = supabase
       .channel("mail-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "emails" }, () => get().fetchMails())
+      .on("postgres_changes", { event: "*", schema: "public", table: "emails" }, (payload) => {
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+
+        set((state) => {
+          let updatedMails = [...state.mails];
+
+          if (eventType === "INSERT") {
+            // Only add if it doesn't already exist in state
+            if (!updatedMails.some(m => m.id === newRecord.id)) {
+              updatedMails = [newRecord, ...updatedMails];
+            }
+          }
+          else if (eventType === "UPDATE") {
+            updatedMails = updatedMails.map(m => m.id === newRecord.id ? newRecord : m);
+            // Update selected view if currently open
+            if (state.selectedMail?.id === newRecord.id) {
+              set({ selectedMail: newRecord });
+            }
+          }
+          else if (eventType === "DELETE") {
+            updatedMails = updatedMails.filter(m => m.id === oldRecord.id);
+          }
+
+          return { mails: updatedMails };
+        });
+      })
       .subscribe();
     return () => supabase.removeChannel(channel);
   }
