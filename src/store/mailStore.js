@@ -8,7 +8,6 @@ const EDGE_URL = `${SUPABASE_URL}/functions/v1/ai-assistant`;
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export const useMailStore = create((set, get) => ({
-  // --- STATE ---
   user: null,
   mails: [],
   selectedMail: null,
@@ -16,9 +15,9 @@ export const useMailStore = create((set, get) => ({
   activeCategory: "Primary",
   searchText: "",
   isLoading: false,
+  isRefreshing: false, // For the refresh button feedback
   isAnalyzing: false,
 
-  // --- ACTIONS ---
   setUser: (user) => set({ user }),
   setFolder: (folder) => set({ activeFolder: folder, activeCategory: "Primary", selectedMail: null }),
   setActiveCategory: (category) => set({ activeCategory: category, selectedMail: null }),
@@ -40,6 +39,7 @@ export const useMailStore = create((set, get) => ({
     return subscription;
   },
 
+  // --- FETCH & REFRESH ---
   fetchMails: async () => {
     if (get().isLoading) return;
     set({ isLoading: true });
@@ -52,16 +52,35 @@ export const useMailStore = create((set, get) => ({
     set({ isLoading: false });
   },
 
+  forceRefresh: async () => {
+    set({ isRefreshing: true });
+    await get().fetchMails();
+    // Artificial delay for smooth UI feedback during demo
+    setTimeout(() => set({ isRefreshing: false }), 600);
+  },
+
+  // --- SEND EMAIL (FIXED PATH) ---
   sendMail: async (emailData) => {
-    await fetch(`${EDGE_URL}/send-email`, {
+    const response = await fetch(`${EDGE_URL}/send-email`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+      },
       body: JSON.stringify(emailData),
     });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to send email");
+    }
+
+    // Refresh sent folder after sending
+    get().fetchMails();
     return true;
   },
 
-  // --- AI ACTIONS ---
+  // --- AI & REAL-TIME (Kept from previous) ---
   generateAISummary: async (id) => {
     set({ isAnalyzing: true });
     const res = await fetch(`${EDGE_URL}/summarize`, {
@@ -92,23 +111,10 @@ export const useMailStore = create((set, get) => ({
     }));
   },
 
-  // --- REAL-TIME SYNC ---
   subscribeToMails: () => {
     const channel = supabase
       .channel("mail-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "emails" }, (payload) => {
-        // Efficient Update: If a mail body is updated, update only that mail in the list
-        if (payload.eventType === "UPDATE") {
-          set((state) => ({
-            mails: state.mails.map(m => m.id === payload.new.id ? payload.new : m),
-            // Update selected view if it's the one that just got its body
-            selectedMail: state.selectedMail?.id === payload.new.id ? payload.new : state.selectedMail
-          }));
-        } else {
-          // For New Mails (INSERT), refresh the whole list to keep sorting
-          get().fetchMails();
-        }
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "emails" }, () => get().fetchMails())
       .subscribe();
     return () => supabase.removeChannel(channel);
   }
