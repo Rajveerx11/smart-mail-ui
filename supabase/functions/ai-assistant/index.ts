@@ -8,9 +8,7 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const supabase = createClient(
@@ -21,25 +19,20 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const payload = await req.json();
     
-    // Check if this is an AI request (UI) or a Webhook (Resend)
+    // Check if this is AI request or Webhook
     const isAiRequest = url.pathname.endsWith('/summarize') || url.pathname.endsWith('/generate-reply');
 
     if (isAiRequest) {
-      /* CASE A: MANUAL AI COPILOT */
       const { email_id } = payload;
-      const isSummarize = url.pathname.endsWith('/summarize');
-
-      const { data: email, error: fErr } = await supabase.from("emails").select("body, subject").eq("id", email_id).single();
-      if (fErr || !email) throw new Error("Email not found");
-
-      const groqApiKey = Deno.env.get("GROQ_API_KEY");
-      const prompt = isSummarize 
+      const { data: email } = await supabase.from("emails").select("*").eq("id", email_id).single();
+      
+      const prompt = url.pathname.endsWith('/summarize') 
         ? `Summarize in 3 bullets: ${email.body}`
         : `Draft a professional reply to: ${email.body}`;
 
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
-        headers: { "Authorization": `Bearer ${groqApiKey}`, "Content-Type": "application/json" },
+        headers: { "Authorization": `Bearer ${Deno.env.get("GROQ_API_KEY")}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
           messages: [{ role: "user", content: prompt }],
@@ -48,47 +41,38 @@ Deno.serve(async (req: Request) => {
 
       const gData = await res.json();
       const aiContent = gData.choices[0].message.content;
-
-      await supabase.from("emails").update(isSummarize ? { summary: aiContent } : { ai_draft: aiContent }).eq("id", email_id);
-
-      return new Response(JSON.stringify({ success: true, data: aiContent }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const updateKey = url.pathname.endsWith('/summarize') ? "summary" : "ai_draft";
+      
+      await supabase.from("emails").update({ [updateKey]: aiContent }).eq("id", email_id);
+      return new Response(JSON.stringify({ success: true, data: aiContent }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     } else {
-      /* CASE B: INBOUND WEBHOOK (Resend) */
-      // FIX: Aggressively look for the body in common Resend nesting patterns
+      /* CASE B: WEBHOOK (Improved Logic) */
       const data = payload.data || {};
-      const bodyContent = data.text || data.html || payload.text || payload.html || "No body content found";
+      
+      // DEEP SEARCH for body content
+      const bodyContent = data.text || data.html || payload.text || payload.html || data.body || "Body content missing from webhook payload";
 
       const extractEmail = (str: any) =>
         typeof str === "string" ? str.match(/<(.+)>|(\S+@\S+\.\S+)/)?.[0]?.replace(/[<>]/g, "") || str : str;
 
       const { error } = await supabase.from("emails").insert([
         {
-          message_id: data.id || `rec-${Date.now()}`,
+          message_id: data.message_id || data.email_id || `rec-${Date.now()}`,
           sender: extractEmail(data.from) || "unknown@sender.com",
           recipient: (Array.isArray(data.to) ? data.to[0] : data.to) || "unknown@recipient.com",
           subject: data.subject || "No Subject",
-          body: bodyContent, // FIXED: Now uses the resolved bodyContent
+          body: bodyContent,
+          raw_json: payload, // Store the WHOLE thing for debugging
           folder: "Inbox",
           processed: false,
         },
       ]);
 
       if (error) throw error;
-
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
   } catch (err: any) {
-    console.error("Function Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: err.message }), { status: 400, headers: corsHeaders });
   }
 });
