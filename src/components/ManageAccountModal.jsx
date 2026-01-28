@@ -6,6 +6,7 @@ export default function ManageAccountModal() {
     isManageAccountOpen,
     closeManageAccount,
     user,
+    openAccountTab,
   } = useMailStore();
 
   if (!isManageAccountOpen) return null;
@@ -38,39 +39,54 @@ export default function ManageAccountModal() {
         </div>
 
         {/* OPTIONS */}
-        <div className="p-6 space-y-4">
-          <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-100 cursor-pointer">
-            <User size={20} />
-            <div>
-              <div className="font-medium text-sm">Personal info</div>
-              <div className="text-xs text-gray-500">
-                Name, profile photo
-              </div>
-            </div>
-          </div>
+       <div className="p-6 space-y-4">
 
-          <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-100 cursor-pointer">
-            <Lock size={20} />
-            <div>
-              <div className="font-medium text-sm">Security</div>
-              <div className="text-xs text-gray-500">
-                Password, devices
-              </div>
-            </div>
-          </div>
+  {/* PERSONAL INFO */}
+  <div
+    onClick={() => openAccountTab("personal")}
+    className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-100 cursor-pointer"
+  >
+    <User size={20} />
+    <div>
+      <div className="font-medium text-sm">Personal info</div>
+      <div className="text-xs text-gray-500">
+        Name, profile photo
+      </div>
+    </div>
+  </div>
 
-          <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-100 cursor-pointer">
-            <Shield size={20} />
-            <div>
-              <div className="font-medium text-sm">
-                Privacy & protection
-              </div>
-              <div className="text-xs text-gray-500">
-                Data, personalization
-              </div>
-            </div>
-          </div>
-        </div>
+  {/* SECURITY */}
+  <div
+    onClick={() => openAccountTab("security")}
+    className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-100 cursor-pointer"
+  >
+    <Lock size={20} />
+    <div>
+      <div className="font-medium text-sm">Security</div>
+      <div className="text-xs text-gray-500">
+        Password, devices
+      </div>
+    </div>
+  </div>
+
+  {/* PRIVACY */}
+  <div
+    onClick={() => openAccountTab("privacy")}
+    className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-100 cursor-pointer"
+  >
+    <Shield size={20} />
+    <div>
+      <div className="font-medium text-sm">
+        Privacy & protection
+      </div>
+      <div className="text-xs text-gray-500">
+        Data, personalization
+      </div>
+    </div>
+  </div>
+
+</div>
+
 
         {/* FOOTER */}
         <div className="px-6 py-4 border-t flex justify-end">

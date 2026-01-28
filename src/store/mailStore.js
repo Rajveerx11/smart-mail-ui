@@ -32,6 +32,12 @@ export const useMailStore = create((set, get) => ({
   openSignOut: () => set({ isSignOutOpen: true }),
   closeSignOut: () => set({ isSignOutOpen: false }),
 
+  /* 🔹 ACCOUNT SECTIONS */
+activeAccountTab: null,
+
+openAccountTab: (tab) => set({ activeAccountTab: tab }),
+closeAccountTab: () => set({ activeAccountTab: null }),
+
   /* 🔹 MANAGE ACCOUNT */
   isManageAccountOpen: false,
   openManageAccount: () => set({ isManageAccountOpen: true }),
