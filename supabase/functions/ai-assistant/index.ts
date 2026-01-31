@@ -28,7 +28,7 @@ Deno.serve(async (req: Request) => {
       const resendRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from: "rajveer.vadnal@bodhakai.online", to, subject, text: body }),
+        body: JSON.stringify({ from: "rajveer.vadnal@bodhakai.online", to: [to], subject, text: body }),
       });
       const data = await resendRes.json();
       if (!resendRes.ok) throw new Error(data.message || "Failed to send");
