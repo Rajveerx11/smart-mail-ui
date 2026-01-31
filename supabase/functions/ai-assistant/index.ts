@@ -32,6 +32,18 @@ Deno.serve(async (req: Request) => {
       });
       const data = await resendRes.json();
       if (!resendRes.ok) throw new Error(data.message || "Failed to send");
+
+      // Save to Sent folder
+      await supabase.from("emails").insert([{
+        message_id: data.id,
+        sender: "rajveer.vadnal@bodhakai.online",
+        recipient: to, // 'to' is already a string from payload
+        subject,
+        body,
+        folder: "Sent",
+        read_status: true
+      }]);
+
       return new Response(JSON.stringify({ success: true, id: data.id }), { headers: corsHeaders });
     }
 

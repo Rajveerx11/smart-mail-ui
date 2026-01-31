@@ -38,6 +38,7 @@ export default function ComposeModal() {
     try {
       // Hits the /send-email endpoint in your consolidated index.ts
       await sendMail({ to, subject, body });
+      alert("Message was successfully sent");
       setTo("");
       setSubject("");
       setBody("");
