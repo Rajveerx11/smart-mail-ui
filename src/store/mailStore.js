@@ -17,6 +17,14 @@ export const useMailStore = create((set, get) => ({
   isLoading: false,
   isRefreshing: false,
   isAnalyzing: false,
+  isComposeOpen: false,
+  isComposeMinimized: false,
+  isSidebarOpen: true,
+
+  // Compose modal actions
+  openCompose: () => set({ isComposeOpen: true, isComposeMinimized: false }),
+  closeCompose: () => set({ isComposeOpen: false, isComposeMinimized: false }),
+  toggleMinimize: () => set((state) => ({ isComposeMinimized: !state.isComposeMinimized })),
 
   setUser: (user) => set({ user }),
   setFolder: (folder) => set({ activeFolder: folder, activeCategory: "Primary", selectedMail: null }),
