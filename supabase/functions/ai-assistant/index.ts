@@ -136,7 +136,7 @@ Deno.serve(async (req: Request) => {
       try {
         // Fetch all attachment metadata from Resend Attachments API
         const attachmentsRes = await fetch(
-          `https://api.resend.com/emails/receiving/attachments?emailId=${emailId}`,
+          `https://api.resend.com/emails/receiving/attachments?email_id=${emailId}`,
           {
             method: "GET",
             headers: { "Authorization": `Bearer ${apiKey}` }
