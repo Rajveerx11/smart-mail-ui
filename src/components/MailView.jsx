@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { Sparkles, MessageSquare, Loader2, Copy, Check } from "lucide-react";
-import { useMailStore } from "../store/mailStore";
+import { useState } from "react";
+import { Sparkles, MessageSquare, Loader2, Copy, Check, Paperclip, Download } from "lucide-react";
+import { useMailStore, supabase } from "../store/mailStore";
 
 export default function MailView() {
   const selectedMail = useMailStore((s) => s.selectedMail);
@@ -9,11 +9,41 @@ export default function MailView() {
   const generateAIDraft = useMailStore((s) => s.generateAIDraft);
 
   const [copied, setCopied] = useState(false);
+  const [downloadingAttachment, setDownloadingAttachment] = useState(null);
 
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadAttachment = async (attachment) => {
+    setDownloadingAttachment(attachment.filename);
+    try {
+      // Generate signed URL for download (valid for 1 hour)
+      const { data, error } = await supabase.storage
+        .from("email-attachments")
+        .createSignedUrl(attachment.storage_path, 3600);
+
+      if (error) {
+        console.error("Failed to create signed URL:", error);
+        alert("Failed to download attachment");
+        return;
+      }
+
+      // Trigger browser download
+      const link = document.createElement("a");
+      link.href = data.signedUrl;
+      link.download = attachment.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Download error:", err);
+      alert("Failed to download attachment");
+    } finally {
+      setDownloadingAttachment(null);
+    }
   };
 
   if (!selectedMail) return (
@@ -24,6 +54,9 @@ export default function MailView() {
       </div>
     </div>
   );
+
+  const attachments = selectedMail.attachments;
+  const hasAttachments = attachments && Array.isArray(attachments) && attachments.length > 0;
 
   return (
     <div className="flex-1 flex overflow-hidden bg-white">
@@ -49,6 +82,40 @@ export default function MailView() {
         <article className="prose prose-slate max-w-none text-slate-700 leading-relaxed text-[15px] whitespace-pre-wrap">
           {selectedMail.body}
         </article>
+
+        {/* ATTACHMENTS SECTION */}
+        {hasAttachments && (
+          <div className="mt-8 pt-6 border-t border-slate-100">
+            <div className="flex items-center gap-2 mb-4">
+              <Paperclip size={16} className="text-slate-400" />
+              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                Attachments ({attachments.length})
+              </h3>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {attachments.map((att, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleDownloadAttachment(att)}
+                  disabled={downloadingAttachment === att.filename}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl text-sm text-slate-700 hover:text-indigo-700 transition-all group"
+                >
+                  {downloadingAttachment === att.filename ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Download size={14} className="text-slate-400 group-hover:text-indigo-500" />
+                  )}
+                  <span className="max-w-[200px] truncate">{att.filename}</span>
+                  {att.size && (
+                    <span className="text-xs text-slate-400">
+                      ({(att.size / 1024).toFixed(0)} KB)
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* AI SIDEBAR (Antigravity Style) */}
