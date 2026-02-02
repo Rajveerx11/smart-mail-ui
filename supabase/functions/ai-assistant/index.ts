@@ -24,24 +24,51 @@ Deno.serve(async (req: Request) => {
 
     // --- ROUTE A: SEND EMAIL (From UI) ---
     if (url.pathname.endsWith('/send-email')) {
-      const { to, subject, body } = payload;
+      const { to, subject, body, attachments } = payload;
+
+      // Process attachments: generate signed URLs from Supabase Storage
+      let resendAttachments: { path: string; filename: string }[] = [];
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        for (const att of attachments) {
+          if (!att.storage_path || !att.filename) {
+            console.warn("Skipping invalid attachment:", att);
+            continue;
+          }
+          const SIGNED_URL_EXPIRY = 60 * 60 * 24 * 7; // 7 days
+          const { data: signedData, error: signedError } = await supabase.storage
+            .from("email-attachments")
+            .createSignedUrl(att.storage_path, SIGNED_URL_EXPIRY);
+          if (signedError || !signedData?.signedUrl) {
+            console.error("Failed to create signed URL for:", att.storage_path, signedError);
+            continue;
+          }
+          resendAttachments.push({ path: signedData.signedUrl, filename: att.filename });
+        }
+      }
+
+      const resendPayload: any = { from: "rajveer.vadnal@bodhakai.online", to: [to], subject, text: body };
+      if (resendAttachments.length > 0) {
+        resendPayload.attachments = resendAttachments;
+      }
+
       const resendRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from: "rajveer.vadnal@bodhakai.online", to: [to], subject, text: body }),
+        body: JSON.stringify(resendPayload),
       });
       const data = await resendRes.json();
       if (!resendRes.ok) throw new Error(data.message || "Failed to send");
 
-      // Save to Sent folder
+      // Save to Sent folder (include attachments metadata if present)
       await supabase.from("emails").insert([{
         message_id: data.id,
         sender: "rajveer.vadnal@bodhakai.online",
-        recipient: to, // 'to' is already a string from payload
+        recipient: to,
         subject,
         body,
         folder: "Sent",
-        read_status: true
+        read_status: true,
+        attachments: attachments || null
       }]);
 
       return new Response(JSON.stringify({ success: true, id: data.id }), { headers: corsHeaders });
@@ -101,6 +128,85 @@ Deno.serve(async (req: Request) => {
       const extractEmail = (str: any) =>
         typeof str === "string" ? str.match(/<(.+)>|(\S+@\S+\.\S+)/)?.[0]?.replace(/[<>]/g, "") || str : str;
 
+      // --- INBOUND ATTACHMENTS HANDLING ---
+      const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB limit
+      let inboundAttachments: { filename: string; mime_type: string; size: number; storage_path: string }[] | null = null;
+
+      const rawAttachments = payload.data.attachments || fullEmail.attachments;
+      if (rawAttachments && Array.isArray(rawAttachments) && rawAttachments.length > 0) {
+        inboundAttachments = [];
+
+        for (const att of rawAttachments) {
+          try {
+            if (!att.id || !att.filename) {
+              console.warn("Skipping attachment with missing id/filename:", att);
+              continue;
+            }
+
+            // Fetch attachment metadata with download_url from Resend
+            const attMetaRes = await fetch(`https://api.resend.com/attachments/receiving/${att.id}`, {
+              method: "GET",
+              headers: { "Authorization": `Bearer ${apiKey}`, "Accept": "application/json" }
+            });
+            if (!attMetaRes.ok) {
+              console.error("Failed to get attachment metadata:", att.id);
+              continue;
+            }
+            const attMeta = await attMetaRes.json();
+
+            if (!attMeta.download_url) {
+              console.error("No download_url for attachment:", att.id);
+              continue;
+            }
+
+            // Download the attachment binary
+            const downloadRes = await fetch(attMeta.download_url);
+            if (!downloadRes.ok) {
+              console.error("Failed to download attachment:", att.filename);
+              continue;
+            }
+
+            const fileBuffer = await downloadRes.arrayBuffer();
+            const fileSize = fileBuffer.byteLength;
+
+            // Skip if exceeds size limit
+            if (fileSize > MAX_ATTACHMENT_SIZE) {
+              console.warn("Skipping attachment exceeding 10MB limit:", att.filename, fileSize);
+              continue;
+            }
+
+            // Upload to Supabase Storage
+            const storagePath = `inbound/${emailId}/${att.filename}`;
+            const { error: uploadError } = await supabase.storage
+              .from("email-attachments")
+              .upload(storagePath, fileBuffer, {
+                contentType: att.content_type || "application/octet-stream",
+                upsert: false
+              });
+
+            if (uploadError) {
+              console.error("Failed to upload attachment to storage:", att.filename, uploadError);
+              continue;
+            }
+
+            inboundAttachments.push({
+              filename: att.filename,
+              mime_type: att.content_type || "application/octet-stream",
+              size: fileSize,
+              storage_path: storagePath
+            });
+          } catch (attErr: any) {
+            console.error("Error processing attachment:", att.filename, attErr.message);
+            continue;
+          }
+        }
+
+        // Set to null if no attachments were successfully processed
+        if (inboundAttachments.length === 0) {
+          inboundAttachments = null;
+        }
+      }
+
       const { error } = await supabase.from("emails").insert([{
         message_id: emailId,
         sender: extractEmail(fullEmail.from),
@@ -108,7 +214,8 @@ Deno.serve(async (req: Request) => {
         subject: fullEmail.subject || "(No Subject)",
         body: bodyContent,
         raw_json: fullEmail,
-        folder: "Inbox"
+        folder: "Inbox",
+        attachments: inboundAttachments
       }]);
 
       if (error) throw error;
