@@ -129,19 +129,19 @@ Deno.serve(async (req: Request) => {
         typeof str === "string" ? str.match(/<(.+)>|(\S+@\S+\.\S+)/)?.[0]?.replace(/[<>]/g, "") || str : str;
 
       // --- INBOUND ATTACHMENTS HANDLING ---
-      // Resend API: POST /emails/attachments returns list with download_url included
+      // Resend API: GET /emails/receiving/:email_id/attachments returns list with download_url
       const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB limit
       let inboundAttachments: { filename: string; mime_type: string; size: number; storage_path: string }[] | null = null;
 
       try {
-        // POST to /emails/attachments with emailId query param (returns download_url directly)
+        // GET attachments for this received email (correct endpoint)
         const listRes = await fetch(
-          `https://api.resend.com/emails/attachments?emailId=${emailId}`,
+          `https://api.resend.com/emails/receiving/${emailId}/attachments`,
           {
-            method: "POST",
+            method: "GET",
             headers: { 
               "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json"
+              "Accept": "application/json"
             }
           }
         );
