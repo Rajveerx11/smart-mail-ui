@@ -35,6 +35,83 @@ export const useMailStore = create((set, get) => ({
   setSearchText: (text) => set({ searchText: text }),
   setSelectedMail: (mail) => set({ selectedMail: mail }),
 
+  // Update user profile (name, metadata)
+  updateUser: async (updates) => {
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: updates // updates can include { name, photo, etc. }
+      });
+
+      if (error) throw error;
+
+      // Update local state with new user data
+      set({ user: data.user });
+      return { success: true };
+    } catch (err) {
+      console.error("Update user error:", err.message);
+      return { success: false, error: err.message };
+    }
+  },
+
+  // Logout user
+  logout: async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // Clear all state
+      set({ user: null, mails: [], selectedMail: null });
+      return { success: true };
+    } catch (err) {
+      console.error("Logout error:", err.message);
+      return { success: false, error: err.message };
+    }
+  },
+
+  // Upload profile photo to Supabase Storage
+  uploadProfilePhoto: async (file) => {
+    try {
+      const user = get().user;
+      if (!user) throw new Error("No user logged in");
+
+      // Validate file
+      if (!file.type.startsWith('image/')) {
+        throw new Error("Please select a valid image file");
+      }
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        throw new Error("Image size must be less than 5MB");
+      }
+
+      // Create unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+      const filePath = `profile-photos/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(filePath);
+
+      // Update user metadata with photo URL
+      await get().updateUser({ photo: publicUrl });
+
+      return { success: true, url: publicUrl };
+    } catch (err) {
+      console.error("Upload photo error:", err.message);
+      return { success: false, error: err.message };
+    }
+  },
+
   initializeAuth: async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
