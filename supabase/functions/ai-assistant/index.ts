@@ -129,65 +129,44 @@ Deno.serve(async (req: Request) => {
         typeof str === "string" ? str.match(/<(.+)>|(\S+@\S+\.\S+)/)?.[0]?.replace(/[<>]/g, "") || str : str;
 
       // --- INBOUND ATTACHMENTS HANDLING ---
-      // Resend requires two-step flow:
-      // 1. List attachments: GET /attachments/receiving?email_id=<id> (metadata only)
-      // 2. Get each attachment: GET /attachments/receiving/<att_id>?email_id=<id> (has download_url)
+      // Resend API: POST /emails/attachments returns list with download_url included
       const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB limit
       let inboundAttachments: { filename: string; mime_type: string; size: number; storage_path: string }[] | null = null;
 
       try {
-        // Step 1: List all attachments for this inbound email (metadata only, no download_url)
+        // POST to /emails/attachments with emailId query param (returns download_url directly)
         const listRes = await fetch(
-          `https://api.resend.com/attachments/receiving?email_id=${emailId}`,
+          `https://api.resend.com/emails/attachments?emailId=${emailId}`,
           {
-            method: "GET",
-            headers: { "Authorization": `Bearer ${apiKey}` }
+            method: "POST",
+            headers: { 
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            }
           }
         );
 
         if (listRes.ok) {
           const listData = await listRes.json();
           
-          // Resend returns { data: [...] } or array directly
-          const attachmentList = Array.isArray(listData) 
-            ? listData 
-            : (listData.data || []);
+          // Response is { data: [...] } with download_url included
+          const attachmentList = listData.data || [];
 
           if (attachmentList.length > 0) {
             inboundAttachments = [];
 
-            for (const attMeta of attachmentList) {
+            for (const att of attachmentList) {
               try {
-                if (!attMeta.id) {
-                  console.warn("Skipping attachment with missing id");
+                // download_url is included directly in the list response
+                if (!att.download_url || !att.filename) {
+                  console.warn("Attachment missing download_url or filename");
                   continue;
                 }
 
-                // Step 2: Get individual attachment details (this contains download_url)
-                const getRes = await fetch(
-                  `https://api.resend.com/attachments/receiving/${attMeta.id}?email_id=${emailId}`,
-                  {
-                    method: "GET",
-                    headers: { "Authorization": `Bearer ${apiKey}` }
-                  }
-                );
-
-                if (!getRes.ok) {
-                  console.warn("Failed to get attachment details:", attMeta.id, getRes.status);
-                  continue;
-                }
-
-                const attDetails = await getRes.json();
-
-                if (!attDetails.download_url || !attDetails.filename) {
-                  console.warn("Attachment missing download_url or filename:", attMeta.id);
-                  continue;
-                }
-
-                // Step 3: Download the attachment binary immediately (URL expires after ~1 hour)
-                const downloadRes = await fetch(attDetails.download_url);
+                // Download the attachment binary immediately (URL expires after 1 hour)
+                const downloadRes = await fetch(att.download_url);
                 if (!downloadRes.ok) {
-                  console.warn("Failed to download attachment:", attDetails.filename);
+                  console.warn("Failed to download attachment:", att.filename);
                   continue;
                 }
 
@@ -196,32 +175,32 @@ Deno.serve(async (req: Request) => {
 
                 // Skip if exceeds size limit
                 if (fileSize > MAX_ATTACHMENT_SIZE) {
-                  console.warn("Skipping attachment exceeding 10MB limit:", attDetails.filename, fileSize);
+                  console.warn("Skipping attachment exceeding 10MB limit:", att.filename, fileSize);
                   continue;
                 }
 
-                // Step 4: Upload to Supabase Storage
-                const storagePath = `inbound/${emailId}/${attDetails.filename}`;
+                // Upload to Supabase Storage
+                const storagePath = `inbound/${emailId}/${att.filename}`;
                 const { error: uploadError } = await supabase.storage
                   .from("email-attachments")
                   .upload(storagePath, fileBuffer, {
-                    contentType: attDetails.content_type || "application/octet-stream",
+                    contentType: att.content_type || "application/octet-stream",
                     upsert: false
                   });
 
                 if (uploadError) {
-                  console.warn("Failed to upload attachment to storage:", attDetails.filename, uploadError.message);
+                  console.warn("Failed to upload attachment to storage:", att.filename, uploadError.message);
                   continue;
                 }
 
                 inboundAttachments.push({
-                  filename: attDetails.filename,
-                  mime_type: attDetails.content_type || "application/octet-stream",
+                  filename: att.filename,
+                  mime_type: att.content_type || "application/octet-stream",
                   size: fileSize,
                   storage_path: storagePath
                 });
               } catch (attErr: any) {
-                console.warn("Error processing attachment:", attMeta.id, attErr.message);
+                console.warn("Error processing attachment:", att.filename, attErr.message);
                 continue;
               }
             }
@@ -233,7 +212,8 @@ Deno.serve(async (req: Request) => {
           }
         } else {
           // Non-fatal: log warning and continue without attachments
-          console.warn("Failed to list attachments from Resend:", listRes.status);
+          const errorBody = await listRes.text();
+          console.warn("Failed to list attachments from Resend:", listRes.status, errorBody);
         }
       } catch (attachmentErr: any) {
         // Non-fatal: attachment handling should never block email insertion
