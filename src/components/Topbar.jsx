@@ -35,6 +35,7 @@ export default function Topbar() {
   // Derive Display Name and Initial safely from Supabase user object
   const displayName = user?.user_metadata?.name || user?.email || "User";
   const userInitial = displayName.charAt(0).toUpperCase();
+  const userPhoto = user?.user_metadata?.photo;
 
   useEffect(() => {
     const handler = (e) => {
@@ -139,9 +140,13 @@ export default function Topbar() {
         <button
           onClick={toggleProfile}
           className="w-10 h-10 rounded-full bg-indigo-600 text-white
-          flex items-center justify-center font-bold shadow-md hover:scale-105 active:scale-95 transition-all"
+          flex items-center justify-center font-bold shadow-md hover:scale-105 active:scale-95 transition-all overflow-hidden"
         >
-          {userInitial}
+          {userPhoto ? (
+            <img src={userPhoto} alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            userInitial
+          )}
         </button>
 
         {/* HOVER TOOLTIP */}

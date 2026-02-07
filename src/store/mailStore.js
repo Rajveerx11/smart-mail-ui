@@ -14,12 +14,16 @@ export const useMailStore = create((set, get) => ({
   activeFolder: "Inbox",
   activeCategory: "Primary",
   searchText: "",
+  searchHistory: [],
   isLoading: false,
   isRefreshing: false,
   isAnalyzing: false,
   isComposeOpen: false,
   isComposeMinimized: false,
   isSidebarOpen: true,
+  isProfileOpen: false,
+  isAddAccountOpen: false,
+  isSignOutOpen: false,
 
   // Compose modal actions
   openCompose: () => set({ isComposeOpen: true, isComposeMinimized: false }),
@@ -28,6 +32,22 @@ export const useMailStore = create((set, get) => ({
 
   // Sidebar toggle
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+
+  // Profile menu controls
+  toggleProfile: () => set((state) => ({ isProfileOpen: !state.isProfileOpen })),
+  closeProfile: () => set({ isProfileOpen: false }),
+  openAddAccount: () => set({ isAddAccountOpen: true, isProfileOpen: false }),
+  closeAddAccount: () => set({ isAddAccountOpen: false }),
+  openSignOut: () => set({ isSignOutOpen: true, isProfileOpen: false }),
+  closeSignOut: () => set({ isSignOutOpen: false }),
+
+  // Search functionality
+  addSearchHistory: (term) => set((state) => {
+    if (!term.trim()) return state;
+    const filtered = state.searchHistory.filter(h => h !== term);
+    return { searchHistory: [term, ...filtered].slice(0, 5) };
+  }),
+  clearSearch: () => set({ searchText: "" }),
 
   setUser: (user) => set({ user }),
   setFolder: (folder) => set({ activeFolder: folder, activeCategory: "Primary", selectedMail: null }),

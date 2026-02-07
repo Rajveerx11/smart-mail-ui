@@ -12,6 +12,7 @@ export default function ProfileMenu() {
   // Derive Display Name safely
   const displayName = user?.user_metadata?.name || user?.email || "User";
   const userInitial = displayName.charAt(0).toUpperCase();
+  const userPhoto = user?.user_metadata?.photo;
 
   return (
     <div className="
@@ -34,9 +35,13 @@ export default function ProfileMenu() {
         <div className="
           w-20 h-20 rounded-full bg-blue-600
           text-white flex items-center justify-center
-          text-3xl shadow-lg
+          text-3xl shadow-lg overflow-hidden
         ">
-          {userInitial}
+          {userPhoto ? (
+            <img src={userPhoto} alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            userInitial
+          )}
         </div>
 
         <h2 className="mt-3 text-lg font-medium">
