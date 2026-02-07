@@ -14,7 +14,19 @@ export default function ProfileMenu() {
   const [isUploading, setIsUploading] = useState(false);
 
   // Derive Display Name safely
-  const displayName = user?.user_metadata?.name || user?.email || "User";
+  // Derive Display Name safely
+  const getDisplayName = () => {
+    if (user?.user_metadata?.name) return user.user_metadata.name;
+
+    // Fallback: Format name from email (e.g., rajveer.vadnal@... -> Rajveer Vadnal)
+    const emailName = user?.email?.split('@')[0] || "User";
+    return emailName
+      .split('.')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  };
+
+  const displayName = getDisplayName();
   const userInitial = displayName.charAt(0).toUpperCase();
   const userPhoto = user?.user_metadata?.photo;
 
@@ -29,9 +41,9 @@ export default function ProfileMenu() {
 
   return (
     <div className="
-      absolute right-0 mt-3 w-80
-      bg-white rounded-3xl
-      shadow-2xl p-6
+      absolute right-0 mt-3 w-[400px]
+      bg-white rounded-[2rem]
+      shadow-2xl p-8
       animate-scaleFade
       z-50 border border-gray-100
       flex flex-col items-center
