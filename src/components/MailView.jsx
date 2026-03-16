@@ -31,7 +31,7 @@ export default function MailView() {
     setIsScanning(true);
     setPhishResult(null);
     try {
-     const res = await fetch("https://your-tunnel-url.trycloudflare.com/api/phishing", {
+     const res = await fetch("https://liver-aimed-boating-customs.trycloudflare.com/api/phishing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
