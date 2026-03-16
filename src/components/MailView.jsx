@@ -7,9 +7,6 @@ export default function MailView() {
   const isAnalyzing = useMailStore((s) => s.isAnalyzing);
   const generateAISummary = useMailStore((s) => s.generateAISummary);
   const generateAIDraft = useMailStore((s) => s.generateAIDraft);
-  const releaseMail = useMailStore((s) => s.releaseMail);
-  const deleteMail = useMailStore((s) => s.deleteMail);
-  const activeFolder = useMailStore((s) => s.activeFolder);
 
   const [copied, setCopied] = useState(false);
   const [downloadingAttachment, setDownloadingAttachment] = useState(null);
@@ -31,7 +28,7 @@ export default function MailView() {
     setIsScanning(true);
     setPhishResult(null);
     try {
-     const res = await fetch("https://liver-aimed-boating-customs.trycloudflare.com/api/phishing", {
+      const res = await fetch("https://discipline-controllers-men-specially.trycloudflare.com/api/phishing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -155,43 +152,6 @@ export default function MailView() {
               </div>
             </div>
           </div>
-
-          {/* QUARANTINE BANNER */}
-          {selectedMail.quarantine_status && (
-            <div className="mx-8 mt-4 bg-red-50 border border-red-200 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <ShieldAlert size={16} className="text-red-600" />
-                <span className="text-sm font-bold text-red-700">This email was Auto-Quarantined</span>
-                <span className="ml-auto bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                  Score: {selectedMail.phishing_score}/100
-                </span>
-              </div>
-              {selectedMail.quarantine_reason && (
-                <ul className="mb-3 space-y-1">
-                  {selectedMail.quarantine_reason.split(" | ").map((r, i) => (
-                    <li key={i} className="text-xs text-red-600 flex items-start gap-1">
-                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
-                      {r}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => releaseMail(selectedMail.id)}
-                  className="flex-1 py-1.5 rounded-lg bg-white border border-red-200 text-red-600 text-xs font-bold hover:bg-red-50 transition-colors"
-                >
-                  ✓ Release to Inbox
-                </button>
-                <button
-                  onClick={() => deleteMail(selectedMail.id)}
-                  className="flex-1 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
-                >
-                  ✕ Delete Permanently
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* BODY */}
           <div className="px-8 py-4 text-slate-800 leading-relaxed whitespace-pre-wrap text-[15px]">
