@@ -6,7 +6,13 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const EDGE_URL = `${SUPABASE_URL}/functions/v1/ai-assistant`;
 const PHISHING_API = "http://65.2.172.22:5000/api/phishing";
 
+// Teammate Supabase (main emails)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Your own Supabase (quarantine logs)
+const MY_SUPABASE_URL = "https://uiabqhawszrtuferhjre.supabase.co";
+const MY_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpYWJxaGF3c3pydHVmZXJoanJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzQwNjMsImV4cCI6MjA4OTExMDA2M30.9Kl2bPyY-8Dz-BaBXS-wI71TCmgz3DVURCPU3UL5rt4";
+const mySupabase = createClient(MY_SUPABASE_URL, MY_SUPABASE_KEY);
 
 export const useMailStore = create((set, get) => ({
   user: null,
@@ -217,6 +223,19 @@ export const useMailStore = create((set, get) => ({
         ),
       }));
 
+      // Save quarantine log to YOUR Supabase
+      if (shouldQuarantine) {
+        await mySupabase.from("quarantine_logs").insert({
+          email_id: mail.id,
+          sender: mail.sender || "",
+          subject: mail.subject || "",
+          phishing_score: score,
+          risk_level: data.risk_level,
+          reasons: reasons.join(" | "),
+          action: "quarantined"
+        });
+      }
+
       console.log(`[PhishGuard] ${mail.sender} → Score: ${score} → ${shouldQuarantine ? "QUARANTINED" : "SAFE"}`);
     } catch (err) {
       console.error("[PhishGuard] Auto-scan failed:", err.message);
@@ -229,6 +248,14 @@ export const useMailStore = create((set, get) => ({
       .from("emails")
       .update({ quarantine_status: false, quarantine_reason: null })
       .eq("id", id);
+
+    // Log release action to your Supabase
+    await mySupabase.from("quarantine_logs").insert({
+      email_id: id,
+      action: "released",
+      phishing_score: null,
+      risk_level: "released"
+    });
 
     set((s) => ({
       mails: s.mails.map(m =>
@@ -243,6 +270,15 @@ export const useMailStore = create((set, get) => ({
   // ── NEW: Permanently delete email ────────────────────────
   deleteMail: async (id) => {
     await supabase.from("emails").delete().eq("id", id);
+
+    // Log delete action to your Supabase
+    await mySupabase.from("quarantine_logs").insert({
+      email_id: id,
+      action: "deleted",
+      phishing_score: null,
+      risk_level: "deleted"
+    });
+
     set((s) => ({
       mails: s.mails.filter(m => m.id !== id),
       selectedMail: s.selectedMail?.id === id ? null : s.selectedMail,
