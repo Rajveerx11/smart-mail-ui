@@ -28,7 +28,7 @@ export default function MailView() {
     setIsScanning(true);
     setPhishResult(null);
     try {
-    const res = await fetch("http://65.0.93.254:5000/api/phishing", {
+   const res = await fetch("https://axon-phishing-backend.onrender.com/api/phishing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
