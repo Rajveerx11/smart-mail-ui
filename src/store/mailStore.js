@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const EDGE_URL = `${SUPABASE_URL}/functions/v1/ai-assistant`;
-const PHISHING_API = "http://65.2.172.22:5000/api/phishing";
+const PHISHING_API = "https://your-tunnel-url.trycloudflare.com/api/phishing";
 
 // Teammate Supabase (main emails)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
