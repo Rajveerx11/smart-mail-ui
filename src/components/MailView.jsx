@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Sparkles, MessageSquare, Loader2, Copy, Check, Paperclip, Download, Eye, Calendar, Clock, User, CornerUpLeft, MoreVertical } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sparkles, MessageSquare, Loader2, Copy, Check, Paperclip, Download, Eye, Calendar, Clock, User, CornerUpLeft, MoreVertical, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useMailStore, supabase } from "../store/mailStore";
 
 export default function MailView() {
@@ -12,17 +12,50 @@ export default function MailView() {
   const [downloadingAttachment, setDownloadingAttachment] = useState(null);
   const [viewingAttachment, setViewingAttachment] = useState(null);
 
+  // ── Phishing Detection State ──────────────────────────────
+  const [phishResult, setPhishResult] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
+
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // ── Phishing Detection Handler ────────────────────────────
+  const handleDetectPhishing = async () => {
+    if (!selectedMail) return;
+    setIsScanning(true);
+    setPhishResult(null);
+    try {
+   const res = await fetch("https://axon-phishing-backend.onrender.com/api/phishing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sender: selectedMail.sender || "",
+          subject: selectedMail.subject || "",
+          body: selectedMail.body || "",
+        }),
+      });
+      const data = await res.json();
+      setPhishResult(data);
+    } catch (err) {
+      setPhishResult({ error: "Could not connect to phishing detector" });
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // Reset phishing result when selected mail changes
+  useEffect(() => {
+    setPhishResult(null);
+  }, [selectedMail?.id]);
+
+
   const getSignedUrl = async (path) => {
     const { data, error } = await supabase.storage
       .from("email-attachments")
       .createSignedUrl(path, 3600);
-
     if (error) {
       console.error("Failed to create signed URL:", error);
       throw new Error(error.message);
@@ -59,6 +92,14 @@ export default function MailView() {
     }
   };
 
+  // ── Phishing risk config ──────────────────────────────────
+  const RISK = {
+    safe:       { bg: "bg-emerald-50",  border: "border-emerald-200", text: "text-emerald-700", badge: "bg-emerald-100 text-emerald-700", label: "Safe",       icon: <ShieldCheck size={14} /> },
+    suspicious: { bg: "bg-yellow-50",   border: "border-yellow-200",  text: "text-yellow-700",  badge: "bg-yellow-100 text-yellow-700",  label: "Suspicious", icon: <ShieldAlert size={14} /> },
+    phishing:   { bg: "bg-orange-50",   border: "border-orange-200",  text: "text-orange-700",  badge: "bg-orange-100 text-orange-700",  label: "Phishing",   icon: <ShieldAlert size={14} /> },
+    critical:   { bg: "bg-red-50",      border: "border-red-200",     text: "text-red-700",     badge: "bg-red-100 text-red-700",        label: "Critical",   icon: <ShieldAlert size={14} /> },
+  };
+
   if (!selectedMail) return (
     <div className="flex-1 flex items-center justify-center text-slate-400 bg-white">
       <div className="text-center">
@@ -71,6 +112,7 @@ export default function MailView() {
   const attachments = selectedMail.attachments;
   const hasAttachments = attachments && Array.isArray(attachments) && attachments.length > 0;
   const dateObj = new Date(selectedMail.created_at);
+  const riskConfig = phishResult?.risk_level ? RISK[phishResult.risk_level] || RISK.safe : null;
 
   return (
     <div className="flex-1 flex overflow-hidden bg-white">
@@ -105,7 +147,6 @@ export default function MailView() {
                   <p className="text-xs text-slate-400 mt-0.5">to me</p>
                 </div>
               </div>
-
               <div className="text-right text-xs text-slate-500 font-medium">
                 {dateObj.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
               </div>
@@ -124,11 +165,9 @@ export default function MailView() {
                 <Paperclip size={14} />
                 Attachments ({attachments.length})
               </h3>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {attachments.map((att, index) => (
                   <div key={index} className="group relative bg-slate-50 border border-slate-200 rounded-lg p-3 hover:bg-white hover:shadow-md hover:border-indigo-100 transition-all">
-
                     <div className="flex items-start justify-between mb-2">
                       <div className="p-2 bg-white rounded border border-slate-100 text-slate-400">
                         <Paperclip size={16} />
@@ -150,7 +189,6 @@ export default function MailView() {
                         </button>
                       </div>
                     </div>
-
                     <p className="text-sm font-medium text-slate-700 truncate pr-2" title={att.filename}>{att.filename}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       {att.size ? (att.size / 1024).toFixed(0) + ' KB' : ''}
@@ -161,11 +199,11 @@ export default function MailView() {
             </div>
           )}
 
-          <div className="h-20" /> {/* Bottom spacer */}
+          <div className="h-20" />
         </div>
       </div>
 
-      {/* AI SIDEBAR */}
+      {/* AI SIDEBAR — unchanged structure, phishing section added at bottom */}
       <aside className="w-80 bg-slate-50 border-l border-slate-200 flex flex-col flex-shrink-0 z-10 overflow-hidden">
         <div className="p-5 border-b border-slate-200 bg-slate-50">
           <div className="flex items-center gap-2">
@@ -175,7 +213,8 @@ export default function MailView() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
-          {/* SUMMARY SECTION */}
+
+          {/* SUMMARY SECTION — unchanged */}
           <section className="space-y-3">
             <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Summary</h4>
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -205,7 +244,7 @@ export default function MailView() {
             </div>
           </section>
 
-          {/* DRAFT SECTION */}
+          {/* DRAFT SECTION — unchanged */}
           <section className="space-y-3">
             <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Smart Reply</h4>
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -243,6 +282,82 @@ export default function MailView() {
               )}
             </div>
           </section>
+
+          {/* ── PHISHING DETECTION SECTION ── */}
+          <section className="space-y-3">
+            <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Phishing Detection</h4>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+
+              {/* Scan button — shown when no result yet */}
+              {!phishResult && (
+                <button
+                  onClick={handleDetectPhishing}
+                  disabled={isScanning}
+                  className="w-full py-2 rounded-lg border border-dashed border-red-300 text-red-500 text-xs font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  {isScanning
+                    ? <><Loader2 size={14} className="animate-spin" /> Scanning...</>
+                    : <><ShieldAlert size={14} /> Detect Phishing</>
+                  }
+                </button>
+              )}
+
+              {/* Error state */}
+              {phishResult?.error && (
+                <div className="text-[12px] text-red-500 text-center py-1">
+                  {phishResult.error}
+                  <button
+                    onClick={handleDetectPhishing}
+                    className="block mx-auto mt-2 text-[10px] text-red-400 hover:text-red-600 font-semibold"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {/* Result */}
+              {phishResult && !phishResult.error && riskConfig && (
+                <div>
+                  {/* Score + badge */}
+                  <div className={`flex items-center justify-between p-3 rounded-lg ${riskConfig.bg} ${riskConfig.border} border mb-3`}>
+                    <div className="flex items-center gap-2">
+                      <span className={riskConfig.text}>{riskConfig.icon}</span>
+                      <span className={`text-xs font-bold ${riskConfig.text}`}>
+                        {riskConfig.label}
+                      </span>
+                    </div>
+                    <span className={`text-lg font-bold ${riskConfig.text}`}>
+                      {phishResult.score}<span className="text-[10px] font-normal opacity-60">/100</span>
+                    </span>
+                  </div>
+
+                  {/* Reasons list */}
+                  {phishResult.reasons?.length > 0 && (
+                    <ul className="space-y-1.5 mb-3">
+                      {phishResult.reasons.map((r, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[11px] text-slate-500 leading-relaxed">
+                          <span className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${riskConfig.text.replace("text-", "bg-")}`} />
+                          {r}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* Rescan button */}
+                  <button
+                    onClick={handleDetectPhishing}
+                    disabled={isScanning}
+                    className={`text-[10px] font-semibold flex items-center gap-1 ${riskConfig.text} opacity-70 hover:opacity-100`}
+                  >
+                    <ShieldAlert size={10} /> Rescan
+                  </button>
+                </div>
+              )}
+
+            </div>
+          </section>
+          {/* ── END PHISHING SECTION ── */}
+
         </div>
       </aside>
     </div>

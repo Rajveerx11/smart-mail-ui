@@ -1,19 +1,24 @@
-import { Inbox, Send, AlertCircle, Pencil } from "lucide-react";
+import { Inbox, Send, AlertCircle, Pencil, ShieldAlert } from "lucide-react";
 import { useMailStore } from "../store/mailStore";
 
 const items = [
   { name: "Inbox", icon: Inbox },
   { name: "Sent", icon: Send },
   { name: "Spam", icon: AlertCircle },
+  { name: "Quarantine", icon: ShieldAlert }, // ← NEW
 ];
 
 export default function Sidebar() {
   const {
-    activeFolder,       // Added to track which folder is active
-    setFolder,          // Changed from setActiveFolder to match store
+    activeFolder,
+    setFolder,
     openCompose,
-    isSidebarOpen,      // Ensure this is in your store or default to true
+    isSidebarOpen,
+    mails,
   } = useMailStore();
+
+  // Count quarantined emails for badge
+  const quarantineCount = mails.filter(m => m.quarantine_status === true).length;
 
   return (
     <aside
@@ -37,6 +42,7 @@ export default function Sidebar() {
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = activeFolder === item.name;
+          const isQuarantine = item.name === "Quarantine";
 
           return (
             <div
@@ -45,17 +51,32 @@ export default function Sidebar() {
               className={`flex items-center gap-4 cursor-pointer rounded-xl transition-all
                 ${isSidebarOpen ? "px-4 py-3" : "p-4 justify-center"}
                 ${isActive
-                  ? "bg-indigo-50 text-indigo-700 font-bold"
+                  ? isQuarantine
+                    ? "bg-red-50 text-red-700 font-bold"
+                    : "bg-indigo-50 text-indigo-700 font-bold"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}
               `}
               title={!isSidebarOpen ? item.name : ""}
             >
-              <Icon size={20} className={isActive ? "text-indigo-600" : "text-slate-400"} />
+              <Icon
+                size={20}
+                className={isActive
+                  ? isQuarantine ? "text-red-600" : "text-indigo-600"
+                  : "text-slate-400"}
+              />
+
               {isSidebarOpen && <span className="text-sm">{item.name}</span>}
 
-              {/* Optional: Add a simple dot for new activity in Inbox */}
+              {/* Inbox pulse dot */}
               {isSidebarOpen && item.name === "Inbox" && (
                 <div className="ml-auto w-2 h-2 rounded-full bg-indigo-600 shadow-sm animate-pulse" />
+              )}
+
+              {/* Quarantine count badge */}
+              {isSidebarOpen && isQuarantine && quarantineCount > 0 && (
+                <div className="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {quarantineCount}
+                </div>
               )}
             </div>
           );
