@@ -22,5 +22,5 @@ context.md
 *.njsproj
 *.sln
 *.sw?
-
+*.md
 .env
