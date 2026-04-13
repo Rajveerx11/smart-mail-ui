@@ -296,28 +296,41 @@ export const useMailStore = create((set, get) => ({
   },
 
   subscribeToMails: () => {
-    const channel = supabase
-      .channel("mail-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "emails" }, (payload) => {
-        const { eventType, new: newRecord, old: oldRecord } = payload;
-        set((state) => {
-          let updatedMails = [...state.mails];
-          if (eventType === "INSERT") {
-            if (!updatedMails.some(m => m.id === newRecord.id)) {
-              updatedMails = [newRecord, ...updatedMails];
-            }
-          } else if (eventType === "UPDATE") {
-            updatedMails = updatedMails.map(m => m.id === newRecord.id ? newRecord : m);
-            if (state.selectedMail?.id === newRecord.id) {
-              set({ selectedMail: newRecord });
-            }
-          } else if (eventType === "DELETE") {
-            updatedMails = updatedMails.filter(m => m.id !== oldRecord.id);
+  const channel = supabase
+    .channel("mail-changes")
+    .on("postgres_changes", { event: "*", schema: "public", table: "emails" }, (payload) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      set((state) => {
+        let updatedMails = [...state.mails];
+
+        if (eventType === "INSERT") {
+          if (!updatedMails.some(m => m.id === newRecord.id)) {
+            updatedMails = [newRecord, ...updatedMails];
           }
-          return { mails: updatedMails };
-        });
-      })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }
-}));
+
+        } else if (eventType === "UPDATE") {
+
+          // ✅ FIX: merge instead of replace
+          updatedMails = updatedMails.map(m =>
+            m.id === newRecord.id
+              ? { ...m, ...newRecord }
+              : m
+          );
+
+          if (state.selectedMail?.id === newRecord.id) {
+            set({
+              selectedMail: { ...state.selectedMail, ...newRecord }
+            });
+          }
+
+        } else if (eventType === "DELETE") {
+          updatedMails = updatedMails.filter(m => m.id !== oldRecord.id);
+        }
+
+        return { mails: updatedMails };
+      });
+    })
+    .subscribe();
+
+  return () => supabase.removeChannel(channel);
+}
