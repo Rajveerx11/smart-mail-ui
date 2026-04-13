@@ -118,21 +118,32 @@ export const useMailStore = create((set, get) => ({
   },
 
   fetchMails: async () => {
-    if (get().isLoading) return;
-    set({ isLoading: true });
-    try {
-      const { data, error } = await supabase
-        .from("emails")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      set({ mails: data || [] });
-    } catch (err) {
-      console.error("Fetch error:", err.message);
-    } finally {
-      set({ isLoading: false });
-    }
-  },
+  if (get().isLoading) return;
+  set({ isLoading: true });
+  try {
+    const { data, error } = await supabase
+      .from("emails")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+
+    // Quarantine status preserve karo — jo already quarantine hai wo reset mat ho
+    const currentMails = get().mails;
+    const merged = (data || []).map(newMail => {
+      const existing = currentMails.find(m => m.id === newMail.id);
+      if (existing?.quarantine_status === true && newMail.quarantine_status === null) {
+        return { ...newMail, quarantine_status: true, quarantine_reason: existing.quarantine_reason, phishing_score: existing.phishing_score };
+      }
+      return newMail;
+    });
+
+    set({ mails: merged });
+  } catch (err) {
+    console.error("Fetch error:", err.message);
+  } finally {
+    set({ isLoading: false });
+  }
+},
 
   forceRefresh: async () => {
     set({ isRefreshing: true });
