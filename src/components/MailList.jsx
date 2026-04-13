@@ -25,15 +25,13 @@ export default function MailList() {
     }
   }, [fetchMails, subscribeToMails]);
 
-  // Auto-scan new incoming emails
+  // ✅ FIXED: Auto-scan new incoming emails
   useEffect(() => {
     mails.forEach((mail) => {
-      // Only scan inbox emails that haven't been scanned yet
       if (
-  mail.folder === "Inbox" &&
-  (mail.quarantine_status === null ||
-  mail.quarantine_status === undefined)
-) {
+        mail.folder === "Inbox" &&
+        mail.phishing_score === null   // ✅ changed
+      ) {
         if (!scannedIds.current.has(mail.id)) {
           scannedIds.current.add(mail.id);
           autoScanMail(mail);
@@ -51,6 +49,11 @@ export default function MailList() {
 
     // All other folders — never show quarantined emails
     if (m.quarantine_status === true) return false;
+
+    // ✅ NEW: hide unscanned mails in Inbox
+    if (activeFolder === "Inbox" && m.phishing_score === null) {
+      return false;
+    }
 
     // Folder check
     if (m.folder !== activeFolder) return false;
