@@ -30,10 +30,10 @@ export default function MailList() {
     mails.forEach((mail) => {
       // Only scan inbox emails that haven't been scanned yet
       if (
-        mail.folder === "Inbox" &&
-        mail.quarantine_status === null ||
-        mail.quarantine_status === undefined
-      ) {
+  mail.folder === "Inbox" &&
+  (mail.quarantine_status === null ||
+  mail.quarantine_status === undefined)
+) {
         if (!scannedIds.current.has(mail.id)) {
           scannedIds.current.add(mail.id);
           autoScanMail(mail);
