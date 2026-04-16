@@ -9,26 +9,19 @@ export default function MailList() {
   const setSelectedMail = useMailStore((s) => s.setSelectedMail);
   const selectedMail = useMailStore((s) => s.selectedMail);
 
-  // Derived state: Combined Filter
   const filteredMails = mails.filter((m) => {
-    // Quarantine folder — show only quarantined emails
     if (activeFolder === "Quarantine") {
       return m.quarantine_status === true;
     }
 
-    // All other folders — never show quarantined emails
     if (m.quarantine_status === true) return false;
-
-    // Folder check
     if (m.folder !== activeFolder) return false;
 
-    // Category check (Inbox only)
     if (activeFolder === "Inbox") {
       const mailCat = m.category || "Primary";
       if (mailCat !== activeCategory) return false;
     }
 
-    // Search check
     if (searchText) {
       const textStr = `${m.sender} ${m.subject} ${m.body}`.toLowerCase();
       if (!textStr.includes(searchText.toLowerCase())) return false;
@@ -47,8 +40,6 @@ export default function MailList() {
 
   return (
     <div className="w-[400px] flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white transition-all duration-300">
-
-      {/* Quarantine header banner */}
       {activeFolder === "Quarantine" && (
         <div className="bg-red-50 border-b border-red-200 px-5 py-3 flex items-center gap-2">
           <ShieldAlert size={16} className="text-red-600" />
@@ -61,8 +52,8 @@ export default function MailList() {
       {filteredMails.length === 0 ? (
         <div className="p-8 text-center text-gray-500 italic">
           {activeFolder === "Quarantine"
-            ? "🛡️ No quarantined emails. Your inbox is safe!"
-            : `No messages found in ${activeCategory}.`}
+            ? "No quarantined emails. Your inbox is safe!"
+            : `No messages found in ${activeFolder === "Inbox" ? activeCategory : activeFolder}.`}
         </div>
       ) : (
         filteredMails.map((mail) => (
@@ -91,18 +82,17 @@ export default function MailList() {
             </div>
 
             <div className="text-xs text-gray-500 truncate mt-1">
-              {mail.body === "⚠️ Retrieval pending..." ? (
+              {mail.body === "Retrieval pending..." ? (
                 <span className="text-indigo-400 italic font-medium animate-pulse">Syncing content...</span>
               ) : (
                 mail.body?.slice(0, 100)
               )}
             </div>
 
-            {/* Phishing score badge */}
             {mail.phishing_score !== null && mail.phishing_score !== undefined && (
               <div className={`inline-flex items-center gap-1 mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full border ${getRiskColor(mail.phishing_score)}`}>
                 {mail.quarantine_status ? <ShieldAlert size={10} /> : <ShieldCheck size={10} />}
-                {mail.phishing_score}/100 · {mail.quarantine_status ? "QUARANTINED" : "SCANNED"}
+                {mail.phishing_score}/100 - {mail.quarantine_status ? "QUARANTINED" : "SCANNED"}
               </div>
             )}
           </div>

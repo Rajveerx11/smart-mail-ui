@@ -9,7 +9,6 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const EDGE_URL = `${SUPABASE_URL}/functions/v1/ai-assistant`;
 const PHISHING_API = "https://axon-phishing-backend.onrender.com/api/phishing";
 
-// Your own Supabase (quarantine logs)
 const MY_SUPABASE_URL = "https://uiabqhawszrtuferhjre.supabase.co";
 const MY_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpYWJxaGF3c3pydHVmZXJoanJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzQwNjMsImV4cCI6MjA4OTExMDA2M30.9Kl2bPyY-8Dz-BaBXS-wI71TCmgz3DVURCPU3UL5rt4";
 const mySupabase = createClient(MY_SUPABASE_URL, MY_SUPABASE_KEY, {
@@ -47,7 +46,6 @@ export const useMailStore = create((set, get) => ({
   isAddAccountOpen: false,
   isSignOutOpen: false,
 
-  // ── Existing actions — unchanged ──────────────────────────
   openCompose: () => set({ isComposeOpen: true, isComposeMinimized: false }),
   closeCompose: () => set({ isComposeOpen: false, isComposeMinimized: false }),
   toggleMinimize: () => set((state) => ({ isComposeMinimized: !state.isComposeMinimized })),
@@ -60,7 +58,7 @@ export const useMailStore = create((set, get) => ({
   closeSignOut: () => set({ isSignOutOpen: false }),
   addSearchHistory: (term) => set((state) => {
     if (!term.trim()) return state;
-    const filtered = state.searchHistory.filter(h => h !== term);
+    const filtered = state.searchHistory.filter((h) => h !== term);
     return { searchHistory: [term, ...filtered].slice(0, 5) };
   }),
   clearSearch: () => set({ searchText: "" }),
@@ -98,16 +96,18 @@ export const useMailStore = create((set, get) => ({
     try {
       const user = get().user;
       if (!user) throw new Error("No user logged in");
-      if (!file.type.startsWith('image/')) throw new Error("Please select a valid image file");
+      if (!file.type.startsWith("image/")) throw new Error("Please select a valid image file");
       if (file.size > 5 * 1024 * 1024) throw new Error("Image size must be less than 5MB");
-      const fileExt = file.name.split('.').pop();
+
+      const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}_${Date.now()}.${fileExt}`;
       const filePath = `profile-photos/${fileName}`;
       const { error: uploadError } = await supabase.storage
-        .from('profile-photos')
-        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+        .from("profile-photos")
+        .upload(filePath, file, { cacheControl: "3600", upsert: false });
       if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
+
+      const { data: { publicUrl } } = supabase.storage.from("profile-photos").getPublicUrl(filePath);
       await get().updateUser({ photo: publicUrl });
       return { success: true, url: publicUrl };
     } catch (err) {
@@ -122,6 +122,7 @@ export const useMailStore = create((set, get) => ({
       set({ user: session.user });
       get().fetchMails();
     }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         set({ user: session.user });
@@ -130,18 +131,21 @@ export const useMailStore = create((set, get) => ({
         set({ user: null, mails: [], selectedMail: null });
       }
     });
+
     return subscription;
   },
 
   fetchMails: async () => {
     if (get().isLoading) return;
     set({ isLoading: true });
+
     try {
       const { data, error } = await supabase
         .from("emails")
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
+
       set({ mails: (data || []).map(normalizeMail) });
     } catch (err) {
       console.error("Fetch error:", err.message);
@@ -159,13 +163,15 @@ export const useMailStore = create((set, get) => ({
   sendMail: async (emailData) => {
     const response = await fetch(`${EDGE_URL}/send-email`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
       body: JSON.stringify(emailData),
     });
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || "Failed to send email");
     }
+
     get().fetchMails();
     return true;
   },
@@ -174,14 +180,15 @@ export const useMailStore = create((set, get) => ({
     set({ isAnalyzing: true });
     const res = await fetch(`${EDGE_URL}/summarize`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
       body: JSON.stringify({ email_id: id }),
     });
     const result = await res.json();
+
     set((s) => ({
       selectedMail: { ...s.selectedMail, summary: result.data },
-      mails: s.mails.map(m => m.id === id ? { ...m, summary: result.data } : m),
-      isAnalyzing: false
+      mails: s.mails.map((m) => (m.id === id ? { ...m, summary: result.data } : m)),
+      isAnalyzing: false,
     }));
   },
 
@@ -189,18 +196,18 @@ export const useMailStore = create((set, get) => ({
     set({ isAnalyzing: true });
     const res = await fetch(`${EDGE_URL}/generate-reply`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
       body: JSON.stringify({ email_id: id }),
     });
     const result = await res.json();
+
     set((s) => ({
       selectedMail: { ...s.selectedMail, ai_draft: result.data },
-      mails: s.mails.map(m => m.id === id ? { ...m, ai_draft: result.data } : m),
-      isAnalyzing: false
+      mails: s.mails.map((m) => (m.id === id ? { ...m, ai_draft: result.data } : m)),
+      isAnalyzing: false,
     }));
   },
 
-  // ── NEW: Auto-scan email on arrival ──────────────────────
   autoScanMail: async (mail) => {
     if (!mail?.id) return;
     if (mail.folder !== "Inbox") return;
@@ -225,27 +232,28 @@ export const useMailStore = create((set, get) => ({
       const score = data.score;
       const reasons = data.reasons || [];
       const shouldQuarantine = score >= 60;
+      const quarantineReason = reasons.join(" | ");
 
-      // Update in Supabase
       await supabase
         .from("emails")
         .update({
           phishing_score: score,
           quarantine_status: shouldQuarantine,
-          quarantine_reason: reasons.join(" | "),
+          quarantine_reason: quarantineReason,
         })
         .eq("id", mail.id);
 
-      // Update local state
       set((s) => ({
-        mails: s.mails.map(m =>
+        mails: s.mails.map((m) =>
           m.id === mail.id
-            ? { ...m, phishing_score: score, quarantine_status: shouldQuarantine, quarantine_reason: reasons.join(" | ") }
+            ? { ...m, phishing_score: score, quarantine_status: shouldQuarantine, quarantine_reason: quarantineReason }
             : m
         ),
+        selectedMail: s.selectedMail?.id === mail.id
+          ? { ...s.selectedMail, phishing_score: score, quarantine_status: shouldQuarantine, quarantine_reason: quarantineReason }
+          : s.selectedMail,
       }));
 
-      // Save quarantine log to YOUR Supabase
       if (shouldQuarantine) {
         await mySupabase.from("quarantine_logs").insert({
           email_id: mail.id,
@@ -253,12 +261,12 @@ export const useMailStore = create((set, get) => ({
           subject: mail.subject || "",
           phishing_score: score,
           risk_level: data.risk_level,
-          reasons: reasons.join(" | "),
-          action: "quarantined"
+          reasons: quarantineReason,
+          action: "quarantined",
         });
       }
 
-      console.log(`[PhishGuard] ${mail.sender} → Score: ${score} → ${shouldQuarantine ? "QUARANTINED" : "SAFE"}`);
+      console.log(`[PhishGuard] ${mail.sender} -> Score: ${score} -> ${shouldQuarantine ? "QUARANTINED" : "SAFE"}`);
     } catch (err) {
       console.error("[PhishGuard] Auto-scan failed:", err.message);
     } finally {
@@ -266,23 +274,21 @@ export const useMailStore = create((set, get) => ({
     }
   },
 
-  // ── NEW: Release email from quarantine ───────────────────
   releaseMail: async (id) => {
     await supabase
       .from("emails")
       .update({ quarantine_status: false, quarantine_reason: null })
       .eq("id", id);
 
-    // Log release action to your Supabase
     await mySupabase.from("quarantine_logs").insert({
       email_id: id,
       action: "released",
       phishing_score: null,
-      risk_level: "released"
+      risk_level: "released",
     });
 
     set((s) => ({
-      mails: s.mails.map(m =>
+      mails: s.mails.map((m) =>
         m.id === id ? { ...m, quarantine_status: false, quarantine_reason: null } : m
       ),
       selectedMail: s.selectedMail?.id === id
@@ -291,20 +297,18 @@ export const useMailStore = create((set, get) => ({
     }));
   },
 
-  // ── NEW: Permanently delete email ────────────────────────
   deleteMail: async (id) => {
     await supabase.from("emails").delete().eq("id", id);
 
-    // Log delete action to your Supabase
     await mySupabase.from("quarantine_logs").insert({
       email_id: id,
       action: "deleted",
       phishing_score: null,
-      risk_level: "deleted"
+      risk_level: "deleted",
     });
 
     set((s) => ({
-      mails: s.mails.filter(m => m.id !== id),
+      mails: s.mails.filter((m) => m.id !== id),
       selectedMail: s.selectedMail?.id === id ? null : s.selectedMail,
     }));
   },
@@ -315,21 +319,28 @@ export const useMailStore = create((set, get) => ({
       .on("postgres_changes", { event: "*", schema: "public", table: "emails" }, (payload) => {
         const { eventType, new: newRecord, old: oldRecord } = payload;
         const normalizedNewRecord = newRecord ? normalizeMail(newRecord) : null;
+
         set((state) => {
           let updatedMails = [...state.mails];
           let selectedMail = state.selectedMail;
+
           if (eventType === "INSERT") {
-            if (!updatedMails.some(m => m.id === normalizedNewRecord.id)) {
+            if (!updatedMails.some((m) => m.id === normalizedNewRecord.id)) {
               updatedMails = [normalizedNewRecord, ...updatedMails];
             }
           } else if (eventType === "UPDATE") {
-            updatedMails = updatedMails.map(m => m.id === normalizedNewRecord.id ? normalizedNewRecord : m);
+            updatedMails = updatedMails.map((m) =>
+              m.id === normalizedNewRecord.id ? { ...m, ...normalizedNewRecord } : m
+            );
+
             if (state.selectedMail?.id === normalizedNewRecord.id) {
-              selectedMail = normalizedNewRecord;
+              selectedMail = { ...state.selectedMail, ...normalizedNewRecord };
             }
           } else if (eventType === "DELETE") {
-            updatedMails = updatedMails.filter(m => m.id !== oldRecord.id);
+            updatedMails = updatedMails.filter((m) => m.id !== oldRecord.id);
+            selectedMail = state.selectedMail?.id === oldRecord.id ? null : state.selectedMail;
           }
+
           return { mails: updatedMails, selectedMail };
         });
 
@@ -342,6 +353,7 @@ export const useMailStore = create((set, get) => ({
         }
       })
       .subscribe();
+
     return () => supabase.removeChannel(channel);
-  }
+  },
 }));
