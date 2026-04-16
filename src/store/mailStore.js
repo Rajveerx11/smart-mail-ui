@@ -1,17 +1,33 @@
 import { create } from "zustand";
 import { createClient } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabase";
+
+export { supabase };
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const EDGE_URL = `${SUPABASE_URL}/functions/v1/ai-assistant`;
 const PHISHING_API = "https://axon-phishing-backend.onrender.com/api/phishing";
-// Teammate Supabase (main emails)
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Your own Supabase (quarantine logs)
 const MY_SUPABASE_URL = "https://uiabqhawszrtuferhjre.supabase.co";
 const MY_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpYWJxaGF3c3pydHVmZXJoanJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzQwNjMsImV4cCI6MjA4OTExMDA2M30.9Kl2bPyY-8Dz-BaBXS-wI71TCmgz3DVURCPU3UL5rt4";
-const mySupabase = createClient(MY_SUPABASE_URL, MY_SUPABASE_KEY);
+const mySupabase = createClient(MY_SUPABASE_URL, MY_SUPABASE_KEY, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
+});
+
+const autoScanInFlight = new Set();
+
+const normalizeMail = (mail) => ({
+  ...mail,
+  quarantine_status: mail?.quarantine_status === true,
+  quarantine_reason: mail?.quarantine_reason ?? null,
+  phishing_score: mail?.phishing_score ?? null,
+});
 
 export const useMailStore = create((set, get) => ({
   user: null,
@@ -126,7 +142,7 @@ export const useMailStore = create((set, get) => ({
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      set({ mails: data || [] });
+      set({ mails: (data || []).map(normalizeMail) });
     } catch (err) {
       console.error("Fetch error:", err.message);
     } finally {
@@ -186,6 +202,13 @@ export const useMailStore = create((set, get) => ({
 
   // ── NEW: Auto-scan email on arrival ──────────────────────
   autoScanMail: async (mail) => {
+    if (!mail?.id) return;
+    if (mail.folder !== "Inbox") return;
+    if (mail.phishing_score !== null && mail.phishing_score !== undefined) return;
+    if (autoScanInFlight.has(mail.id)) return;
+
+    autoScanInFlight.add(mail.id);
+
     try {
       const res = await fetch(PHISHING_API, {
         method: "POST",
@@ -238,6 +261,8 @@ export const useMailStore = create((set, get) => ({
       console.log(`[PhishGuard] ${mail.sender} → Score: ${score} → ${shouldQuarantine ? "QUARANTINED" : "SAFE"}`);
     } catch (err) {
       console.error("[PhishGuard] Auto-scan failed:", err.message);
+    } finally {
+      autoScanInFlight.delete(mail.id);
     }
   },
 
@@ -289,22 +314,32 @@ export const useMailStore = create((set, get) => ({
       .channel("mail-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "emails" }, (payload) => {
         const { eventType, new: newRecord, old: oldRecord } = payload;
+        const normalizedNewRecord = newRecord ? normalizeMail(newRecord) : null;
         set((state) => {
           let updatedMails = [...state.mails];
+          let selectedMail = state.selectedMail;
           if (eventType === "INSERT") {
-            if (!updatedMails.some(m => m.id === newRecord.id)) {
-              updatedMails = [newRecord, ...updatedMails];
+            if (!updatedMails.some(m => m.id === normalizedNewRecord.id)) {
+              updatedMails = [normalizedNewRecord, ...updatedMails];
             }
           } else if (eventType === "UPDATE") {
-            updatedMails = updatedMails.map(m => m.id === newRecord.id ? newRecord : m);
-            if (state.selectedMail?.id === newRecord.id) {
-              set({ selectedMail: newRecord });
+            updatedMails = updatedMails.map(m => m.id === normalizedNewRecord.id ? normalizedNewRecord : m);
+            if (state.selectedMail?.id === normalizedNewRecord.id) {
+              selectedMail = normalizedNewRecord;
             }
           } else if (eventType === "DELETE") {
             updatedMails = updatedMails.filter(m => m.id !== oldRecord.id);
           }
-          return { mails: updatedMails };
+          return { mails: updatedMails, selectedMail };
         });
+
+        if (
+          eventType === "INSERT" &&
+          normalizedNewRecord?.folder === "Inbox" &&
+          normalizedNewRecord?.phishing_score === null
+        ) {
+          get().autoScanMail(normalizedNewRecord);
+        }
       })
       .subscribe();
     return () => supabase.removeChannel(channel);

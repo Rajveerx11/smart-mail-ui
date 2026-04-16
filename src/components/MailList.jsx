@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { useMailStore } from "../store/mailStore";
 
@@ -7,40 +6,8 @@ export default function MailList() {
   const activeFolder = useMailStore((s) => s.activeFolder);
   const activeCategory = useMailStore((s) => s.activeCategory);
   const searchText = useMailStore((s) => s.searchText);
-  const fetchMails = useMailStore((s) => s.fetchMails);
-  const subscribeToMails = useMailStore((s) => s.subscribeToMails);
   const setSelectedMail = useMailStore((s) => s.setSelectedMail);
   const selectedMail = useMailStore((s) => s.selectedMail);
-  const autoScanMail = useMailStore((s) => s.autoScanMail);
-
-  const hasFetched = useRef(false);
-  const scannedIds = useRef(new Set());
-
-  useEffect(() => {
-    if (!hasFetched.current) {
-      fetchMails();
-      const unsubscribe = subscribeToMails();
-      hasFetched.current = true;
-      return () => unsubscribe();
-    }
-  }, [fetchMails, subscribeToMails]);
-
-  // Auto-scan new incoming emails
-  useEffect(() => {
-    mails.forEach((mail) => {
-      // Only scan inbox emails that haven't been scanned yet
-      if (
-        mail.folder === "Inbox" &&
-        mail.quarantine_status === null ||
-        mail.quarantine_status === undefined
-      ) {
-        if (!scannedIds.current.has(mail.id)) {
-          scannedIds.current.add(mail.id);
-          autoScanMail(mail);
-        }
-      }
-    });
-  }, [mails]);
 
   // Derived state: Combined Filter
   const filteredMails = mails.filter((m) => {
@@ -71,11 +38,11 @@ export default function MailList() {
   });
 
   const getRiskColor = (score) => {
-    if (!score) return null;
+    if (score === null || score === undefined) return "";
     if (score >= 80) return "text-red-600 bg-red-50 border-red-200";
     if (score >= 60) return "text-orange-600 bg-orange-50 border-orange-200";
     if (score >= 35) return "text-yellow-600 bg-yellow-50 border-yellow-200";
-    return null;
+    return "text-emerald-600 bg-emerald-50 border-emerald-200";
   };
 
   return (
@@ -132,10 +99,10 @@ export default function MailList() {
             </div>
 
             {/* Phishing score badge */}
-            {mail.phishing_score && (
+            {mail.phishing_score !== null && mail.phishing_score !== undefined && (
               <div className={`inline-flex items-center gap-1 mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full border ${getRiskColor(mail.phishing_score)}`}>
-                <ShieldAlert size={10} />
-                {mail.phishing_score}/100 · {mail.quarantine_status ? "QUARANTINED" : "SUSPICIOUS"}
+                {mail.quarantine_status ? <ShieldAlert size={10} /> : <ShieldCheck size={10} />}
+                {mail.phishing_score}/100 · {mail.quarantine_status ? "QUARANTINED" : "SCANNED"}
               </div>
             )}
           </div>

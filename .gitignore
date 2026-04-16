@@ -24,3 +24,4 @@ context.md
 *.sw?
 *.md
 .env
+.sql

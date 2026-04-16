@@ -39,7 +39,7 @@ export default function MailView() {
       });
       const data = await res.json();
       setPhishResult(data);
-    } catch (err) {
+    } catch {
       setPhishResult({ error: "Could not connect to phishing detector" });
     } finally {
       setIsScanning(false);
@@ -73,7 +73,7 @@ export default function MailView() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (err) {
+    } catch {
       alert("Failed to download attachment");
     } finally {
       setDownloadingAttachment(null);
@@ -85,7 +85,7 @@ export default function MailView() {
     try {
       const url = await getSignedUrl(attachment.storage_path);
       window.open(url, "_blank");
-    } catch (err) {
+    } catch {
       alert("Failed to open attachment");
     } finally {
       setViewingAttachment(null);

@@ -23,7 +23,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
+      const { error: authError } = await supabase.auth.signInWithPassword({
         // .trim() is critical here to prevent hidden space errors
         email: email.trim(),
         password: password.trim(),
@@ -43,7 +43,7 @@ export default function LoginPage() {
 
       // NOTE: Success is handled automatically by the onAuthStateChange listener in App.jsx
 
-    } catch (err) {
+    } catch {
       setError("An unexpected network error occurred. Please check your connection.");
       setLoading(false);
     }

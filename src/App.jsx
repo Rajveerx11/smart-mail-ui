@@ -22,8 +22,6 @@ export default function App() {
     user,
     initializeAuth,
     subscribeToMails,
-    fetchMails,
-    isLoading
   } = useMailStore();
 
   const isInitialized = useRef(false);
@@ -50,7 +48,7 @@ export default function App() {
       if (authSub?.unsubscribe) authSub.unsubscribe();
       if (mailSub) mailSub(); // Cleanup realtime
     };
-  }, []);
+  }, [initializeAuth, subscribeToMails]);
 
   // Routing Logic
   if (!user) {
