@@ -1,6 +1,6 @@
-import { X, Camera, Loader2, LogOut, UserPlus } from "lucide-react";
-import { useMailStore } from "../store/mailStore";
+import { Camera, Loader2, LogOut, UserPlus, X } from "lucide-react";
 import { useState } from "react";
+import { useMailStore } from "../store/mailStore";
 
 export default function ProfileMenu() {
   const {
@@ -8,22 +8,19 @@ export default function ProfileMenu() {
     closeProfile,
     openAddAccount,
     openSignOut,
-    uploadProfilePhoto
+    uploadProfilePhoto,
   } = useMailStore();
 
   const [isUploading, setIsUploading] = useState(false);
 
-  // Derive Display Name safely
-  // Derive Display Name safely
   const getDisplayName = () => {
     if (user?.user_metadata?.name) return user.user_metadata.name;
 
-    // Fallback: Format name from email (e.g., rajveer.vadnal@... -> Rajveer Vadnal)
-    const emailName = user?.email?.split('@')[0] || "User";
+    const emailName = user?.email?.split("@")[0] || "User";
     return emailName
-      .split('.')
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ');
+      .split(".")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
   };
 
   const displayName = getDisplayName();
@@ -40,48 +37,30 @@ export default function ProfileMenu() {
   };
 
   return (
-    <div className="
-      absolute right-0 mt-3 w-[400px]
-      bg-white rounded-[2rem]
-      shadow-2xl p-8
-      animate-scaleFade
-      z-50 border border-gray-100
-      flex flex-col items-center
-    ">
-      {/* HEADER */}
+    <div className="absolute right-0 mt-3 w-[360px] bg-white rounded-lg shadow-2xl p-6 profile-dropdown z-50 border border-slate-200 flex flex-col items-center">
       <div className="w-full flex justify-between items-center mb-2">
-        <span className="text-xs font-semibold text-gray-400 tracking-wider">ACCOUNT</span>
+        <span className="text-xs font-semibold text-slate-400 tracking-wider">ACCOUNT</span>
         <button
           onClick={closeProfile}
-          className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+          aria-label="Close profile menu"
         >
           <X size={18} />
         </button>
       </div>
 
-      {/* AVATAR WITH UPLOAD OVERLAY */}
       <div className="relative group cursor-pointer mb-3">
-        <div className="
-          w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600
-          text-white flex items-center justify-center
-          text-4xl shadow-xl overflow-hidden border-4 border-white ring-2 ring-gray-50
-        ">
+        <div className="w-24 h-24 rounded-lg bg-blue-600 text-white flex items-center justify-center text-4xl shadow-sm overflow-hidden border border-slate-200">
           {userPhoto ? (
             <img src={userPhoto} alt="Profile" className="w-full h-full object-cover" />
           ) : (
-            <span className="font-bold">{userInitial}</span>
+            <span className="font-semibold">{userInitial}</span>
           )}
         </div>
 
-        {/* HOVER OVERLAY */}
         <label
           htmlFor="profile-upload"
-          className="
-            absolute inset-0 rounded-full bg-black/40 
-            flex items-center justify-center opacity-0 
-            group-hover:opacity-100 transition-opacity duration-200
-            cursor-pointer backdrop-blur-[1px]
-          "
+          className="absolute inset-0 rounded-lg bg-black/45 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
         >
           {isUploading ? (
             <Loader2 size={24} className="text-white animate-spin" />
@@ -98,31 +77,22 @@ export default function ProfileMenu() {
           disabled={isUploading}
         />
 
-        {/* EDIT INDICATOR (Small icon always visible) */}
-        <div className="absolute bottom-0 right-0 bg-white rounded-full p-1.5 shadow-md border border-gray-100 group-hover:scale-110 transition-transform">
-          <Camera size={14} className="text-gray-600" />
+        <div className="absolute bottom-1 right-1 bg-white rounded-lg p-1.5 shadow-sm border border-slate-200">
+          <Camera size={14} className="text-slate-600" />
         </div>
       </div>
 
-      {/* USER INFO */}
-      <h2 className="text-xl font-bold text-gray-800 text-center">
+      <h2 className="text-xl font-semibold text-slate-950 text-center">
         Hi, {displayName}!
       </h2>
-      <p className="text-sm text-gray-500 text-center mt-1 mb-6 px-4 truncate w-full">
+      <p className="text-sm text-slate-500 text-center mt-1 mb-6 px-4 truncate w-full">
         {user?.email}
       </p>
 
-      {/* ACTIONS */}
       <div className="w-full space-y-3">
         <button
           onClick={openAddAccount}
-          className="
-            w-full flex items-center justify-center gap-3
-            py-3 px-4 rounded-xl border border-gray-200
-            text-gray-700 font-medium text-sm
-            hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm 
-            active:scale-[0.98] transition-all duration-200
-          "
+          className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-lg border border-slate-200 text-slate-700 font-medium text-sm hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm transition-all duration-200"
         >
           <UserPlus size={18} />
           Add another account
@@ -130,22 +100,15 @@ export default function ProfileMenu() {
 
         <button
           onClick={openSignOut}
-          className="
-            w-full flex items-center justify-center gap-3
-            py-3 px-4 rounded-xl 
-            bg-red-50 text-red-600 font-medium text-sm
-            hover:bg-red-100 hover:shadow-sm
-            active:scale-[0.98] transition-all duration-200
-          "
+          className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-lg bg-red-50 text-red-600 font-medium text-sm hover:bg-red-100 hover:shadow-sm transition-all duration-200"
         >
           <LogOut size={18} />
           Sign out
         </button>
       </div>
 
-      {/* FOOTER */}
-      <div className="mt-6 text-[10px] text-gray-300 font-medium tracking-widest uppercase">
-        Bodhak AI • Axon Mail
+      <div className="mt-6 text-[10px] text-slate-300 font-medium tracking-widest uppercase">
+        Bodhak AI - Axon Mail
       </div>
     </div>
   );

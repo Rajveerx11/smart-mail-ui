@@ -56,20 +56,20 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
+    <div className="h-screen flex flex-col overflow-hidden bg-[#f5f7fb] text-slate-900">
       <Topbar />
 
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
 
-        <div className="flex flex-1 flex-col bg-white">
+        <main className="flex flex-1 min-w-0 flex-col overflow-hidden bg-white">
           <MailTabs />
 
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 min-w-0 overflow-hidden">
             <MailList />
             <MailView />
           </div>
-        </div>
+        </main>
       </div>
 
       {/* MODALS SECTION */}

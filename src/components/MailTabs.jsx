@@ -12,24 +12,28 @@ export default function MailTabs() {
   const activeFolder = useMailStore((s) => s.activeFolder);
   const activeCategory = useMailStore((s) => s.activeCategory);
   const setActiveCategory = useMailStore((s) => s.setActiveCategory);
+  const mails = useMailStore((s) => s.mails);
 
   // Tabs only show when viewing the Inbox
   if (activeFolder !== "Inbox") return null;
 
   return (
-    <div className="border-b bg-white flex px-2">
+    <div className="border-b border-slate-200 bg-white flex px-3 overflow-x-auto">
       {tabs.map((t) => (
-        <div
+        <button
           key={t.name}
           onClick={() => setActiveCategory(t.name)}
-          className={`px-8 py-4 cursor-pointer border-b-2 flex items-center transition-all ${activeCategory === t.name
-              ? "border-indigo-600 text-indigo-600 font-bold"
-              : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+          className={`min-w-[150px] px-4 py-3 border-b-2 flex items-center gap-2 transition-all ${activeCategory === t.name
+              ? "border-blue-600 text-blue-700 bg-blue-50/50 font-semibold"
+              : "border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50"
             }`}
         >
-          <t.icon size={16} className={`mr-2 ${activeCategory === t.name ? "text-indigo-600" : "text-gray-400"}`} />
-          <span className="text-xs uppercase tracking-widest">{t.name}</span>
-        </div>
+          <t.icon size={16} className={activeCategory === t.name ? "text-blue-600" : "text-slate-400"} />
+          <span className="text-xs uppercase tracking-wider">{t.name}</span>
+          <span className="ml-auto text-[11px] text-slate-400">
+            {mails.filter((m) => m.folder === "Inbox" && (m.category || "Primary") === t.name && m.quarantine_status !== true).length}
+          </span>
+        </button>
       ))}
     </div>
   );
