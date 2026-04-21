@@ -21,8 +21,46 @@ const mySupabase = createClient(MY_SUPABASE_URL, MY_SUPABASE_KEY, {
 
 const autoScanInFlight = new Set();
 
+
+// 🔥🔥🔥 ADDED FUNCTION (NEW)
+const getCategory = (mail) => {
+  const text = `${mail.subject || ""} ${mail.body || ""}`.toLowerCase();
+
+  if (
+    text.includes("sale") ||
+    text.includes("discount") ||
+    text.includes("offer") ||
+    text.includes("deal") ||
+    text.includes("limited time")
+  ) {
+    return "Promotions";
+  }
+
+  if (
+    text.includes("facebook") ||
+    text.includes("instagram") ||
+    text.includes("twitter") ||
+    text.includes("linkedin")
+  ) {
+    return "Social";
+  }
+
+  if (
+    text.includes("update") ||
+    text.includes("alert") ||
+    text.includes("notification")
+  ) {
+    return "Updates";
+  }
+
+  return "Primary";
+};
+
+
+// 🔥 UPDATED normalizeMail (ONLY 1 LINE ADDED)
 const normalizeMail = (mail) => ({
   ...mail,
+  category: mail?.category || getCategory(mail), // ✅ MAIN FIX
   quarantine_status: mail?.quarantine_status === true,
   quarantine_reason: mail?.quarantine_reason ?? null,
   phishing_score: mail?.phishing_score ?? null,
@@ -56,11 +94,13 @@ export const useMailStore = create((set, get) => ({
   closeAddAccount: () => set({ isAddAccountOpen: false }),
   openSignOut: () => set({ isSignOutOpen: true, isProfileOpen: false }),
   closeSignOut: () => set({ isSignOutOpen: false }),
+
   addSearchHistory: (term) => set((state) => {
     if (!term.trim()) return state;
     const filtered = state.searchHistory.filter((h) => h !== term);
     return { searchHistory: [term, ...filtered].slice(0, 5) };
   }),
+
   clearSearch: () => set({ searchText: "" }),
   setUser: (user) => set({ user }),
   setFolder: (folder) => set({ activeFolder: folder, activeCategory: "Primary", selectedMail: null }),
