@@ -11,7 +11,6 @@ node_modules
 dist
 dist-ssr
 *.local
-context.md
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,6 +21,9 @@ context.md
 *.njsproj
 *.sln
 *.sw?
+# Ignore all markdown docs — only README and CONTRIBUTING are public
 *.md
+!README.md
+!CONTRIBUTING.md
 .env
 .sql
