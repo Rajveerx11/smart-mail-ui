@@ -1,4 +1,4 @@
-# Logs
+﻿# Logs
 logs
 *.log
 npm-debug.log*
@@ -21,9 +21,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-# Ignore all markdown docs — only README and CONTRIBUTING are public
+# Ignore all markdown docs â€” only README and CONTRIBUTING are public
 *.md
 !README.md
 !CONTRIBUTING.md
 .env
 .sql
+!SECURITY.md
+!LICENSE.md
