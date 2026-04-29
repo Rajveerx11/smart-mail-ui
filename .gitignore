@@ -25,5 +25,4 @@ dist-ssr
 *.md
 !README.md
 !CONTRIBUTING.md
-.env
 .sql
