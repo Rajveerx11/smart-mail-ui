@@ -121,11 +121,13 @@ export default function MailView() {
   const [phishResult, setPhishResult] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [mailAction, setMailAction] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     setPhishResult(null);
     setCopied(false);
     setMailAction(null);
+    setShowDeleteConfirm(false);
   }, [selectedMail?.id]);
 
   if (!selectedMail) return <EmptyState />;
@@ -245,12 +247,23 @@ export default function MailView() {
                 </h1>
               </div>
 
-              <button
-                className="h-9 w-9 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center shrink-0"
-                aria-label="More options"
-              >
-                <MoreHorizontal size={20} />
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={mailAction === "delete"}
+                  className="h-9 rounded-lg px-3 text-slate-500 hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-200 flex items-center gap-2 transition-colors text-xs font-medium"
+                  aria-label="Delete email"
+                >
+                  {mailAction === "delete" ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
+                <button
+                  className="h-9 w-9 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center"
+                  aria-label="More options"
+                >
+                  <MoreHorizontal size={20} />
+                </button>
+              </div>
             </div>
 
             <div className="mt-6 flex items-center justify-between gap-4">
@@ -367,6 +380,45 @@ export default function MailView() {
 
           <div className="h-16" />
         </div>
+
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-6 w-full max-w-sm mx-4 animate-fade">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-10 w-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
+                  <Trash2 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-slate-950">Delete email</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">This action cannot be undone</p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-600 leading-6 mb-6">
+                Are you sure you want to permanently delete this email? It will be removed from the database and cannot be recovered.
+              </p>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={mailAction === "delete"}
+                  className="h-9 px-4 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    await handleDeleteMail();
+                    setShowDeleteConfirm(false);
+                  }}
+                  disabled={mailAction === "delete"}
+                  className="h-9 px-4 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {mailAction === "delete" ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  Delete permanently
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </article>
 
       <aside className="hidden xl:flex w-[340px] flex-shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-[#f8fafc]">

@@ -31,7 +31,7 @@ export default function MailTabs() {
           <t.icon size={16} className={activeCategory === t.name ? "text-blue-600" : "text-slate-400"} />
           <span className="text-xs uppercase tracking-wider">{t.name}</span>
           <span className="ml-auto text-[11px] text-slate-400">
-            {mails.filter((m) => m.folder === "Inbox" && (m.category || "Primary") === t.name && m.quarantine_status !== true).length}
+            {mails.filter((m) => m.folder === "Inbox" && (m.category || "Primary") === t.name && m.quarantine_status !== true && !m.read_status).length}
           </span>
         </button>
       ))}

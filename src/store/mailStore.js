@@ -9,15 +9,24 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const EDGE_URL = `${SUPABASE_URL}/functions/v1/ai-assistant`;
 const PHISHING_API = "https://axon-phishing-backend.onrender.com/api/phishing";
 
-const MY_SUPABASE_URL = "https://uiabqhawszrtuferhjre.supabase.co";
-const MY_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpYWJxaGF3c3pydHVmZXJoanJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzQwNjMsImV4cCI6MjA4OTExMDA2M30.9Kl2bPyY-8Dz-BaBXS-wI71TCmgz3DVURCPU3UL5rt4";
-const mySupabase = createClient(MY_SUPABASE_URL, MY_SUPABASE_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-  },
-});
+const QUARANTINE_SUPABASE_URL = import.meta.env.VITE_QUARANTINE_SUPABASE_URL;
+const QUARANTINE_SUPABASE_KEY = import.meta.env.VITE_QUARANTINE_SUPABASE_ANON_KEY;
+
+if (!QUARANTINE_SUPABASE_URL || !QUARANTINE_SUPABASE_KEY) {
+  console.warn(
+    "Quarantine Supabase env vars missing (VITE_QUARANTINE_SUPABASE_URL / VITE_QUARANTINE_SUPABASE_ANON_KEY). Quarantine logs disabled."
+  );
+}
+
+const mySupabase = QUARANTINE_SUPABASE_URL && QUARANTINE_SUPABASE_KEY
+  ? createClient(QUARANTINE_SUPABASE_URL, QUARANTINE_SUPABASE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    })
+  : null;
 
 const autoScanInFlight = new Set();
 
@@ -294,7 +303,7 @@ export const useMailStore = create((set, get) => ({
           : s.selectedMail,
       }));
 
-      if (shouldQuarantine) {
+      if (shouldQuarantine && mySupabase) {
         await mySupabase.from("quarantine_logs").insert({
           email_id: mail.id,
           sender: mail.sender || "",
@@ -320,12 +329,14 @@ export const useMailStore = create((set, get) => ({
       .update({ quarantine_status: false, quarantine_reason: null })
       .eq("id", id);
 
-    await mySupabase.from("quarantine_logs").insert({
-      email_id: id,
-      action: "released",
-      phishing_score: null,
-      risk_level: "released",
-    });
+    if (mySupabase) {
+      await mySupabase.from("quarantine_logs").insert({
+        email_id: id,
+        action: "released",
+        phishing_score: null,
+        risk_level: "released",
+      });
+    }
 
     set((s) => ({
       mails: s.mails.map((m) =>
@@ -340,12 +351,14 @@ export const useMailStore = create((set, get) => ({
   deleteMail: async (id) => {
     await supabase.from("emails").delete().eq("id", id);
 
-    await mySupabase.from("quarantine_logs").insert({
-      email_id: id,
-      action: "deleted",
-      phishing_score: null,
-      risk_level: "deleted",
-    });
+    if (mySupabase) {
+      await mySupabase.from("quarantine_logs").insert({
+        email_id: id,
+        action: "deleted",
+        phishing_score: null,
+        risk_level: "deleted",
+      });
+    }
 
     set((s) => ({
       mails: s.mails.filter((m) => m.id !== id),
