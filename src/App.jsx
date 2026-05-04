@@ -17,7 +17,6 @@ import SignOutModal from "./components/SignOutModal";
 import AuthModal from "./components/AuthModal";
 import ManageAccountModal from "./components/ManageAccountModal";
 import SplashScreen from "./components/SplashScreen";
-import LoginPage from "./components/LoginPage";
 
 export default function App() {
   const {

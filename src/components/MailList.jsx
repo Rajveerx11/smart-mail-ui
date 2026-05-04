@@ -10,26 +10,28 @@ export default function MailList() {
   const setSelectedMail = useMailStore((s) => s.setSelectedMail);
   const selectedMail = useMailStore((s) => s.selectedMail);
 
-  const filteredMails = mails.filter((m) => {
-    if (activeFolder === "Quarantine") {
-      return m.quarantine_status === true;
-    }
+  const filteredMails = useMemo(() => {
+    return mails.filter((m) => {
+      if (activeFolder === "Quarantine") {
+        return m.quarantine_status === true;
+      }
 
-    if (m.quarantine_status === true) return false;
-    if (m.folder !== activeFolder) return false;
+      if (m.quarantine_status === true) return false;
+      if (m.folder !== activeFolder) return false;
 
-    if (activeFolder === "Inbox") {
-      const mailCat = m.category || "Primary";
-      if (mailCat !== activeCategory) return false;
-    }
+      if (activeFolder === "Inbox") {
+        const mailCat = m.category || "Primary";
+        if (mailCat !== activeCategory) return false;
+      }
 
-    if (searchText) {
-      const textStr = `${m.sender} ${m.subject} ${m.body}`.toLowerCase();
-      if (!textStr.includes(searchText.toLowerCase())) return false;
-    }
+      if (searchText) {
+        const textStr = `${m.sender} ${m.subject} ${m.body}`.toLowerCase();
+        if (!textStr.includes(searchText.toLowerCase())) return false;
+      }
 
-    return true;
-  });
+      return true;
+    });
+  }, [mails, activeFolder, activeCategory, searchText]);
 
   const getRiskColor = (score) => {
     if (score === null || score === undefined) return "";
@@ -52,28 +54,6 @@ export default function MailList() {
     return date.toLocaleDateString([], { month: "short", day: "numeric" });
   };
 
-  const filteredMails = useMemo(() => {
-    return mails.filter((m) => {
-      // 1️⃣ folder match
-      if (m.folder !== activeFolder) return false;
-
-      // 2️⃣ inbox → category match
-      if (activeFolder === "Inbox") {
-        if (m.category !== activeCategory) return false;
-      }
-
-      // 3️⃣ search
-      if (searchText) {
-        const text = `${m.from} ${m.subject} ${m.body}`.toLowerCase();
-        if (!text.includes(searchText.toLowerCase())) return false;
-      }
-
-      return true;
-    });
-  }, [mails, activeFolder, activeCategory, searchText]);
-
-  /* ✅ EMPTY STATE → FULL CENTER, NO BORDER */
-  if (filteredMails.length === 0) {
   return (
     <section className="w-[clamp(340px,30vw,420px)] min-w-[340px] flex-shrink-0 overflow-y-auto border-r border-slate-200 bg-white transition-all duration-300">
       {activeFolder === "Quarantine" && (

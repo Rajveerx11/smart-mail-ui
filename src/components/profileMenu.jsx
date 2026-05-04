@@ -1,7 +1,6 @@
 import { Camera, Loader2, LogOut, UserPlus, X } from "lucide-react";
-import { useState } from "react";
-import { useMailStore } from "../store/mailStore";
 import { useRef, useState } from "react";
+import { useMailStore } from "../store/mailStore";
 
 export default function ProfileMenu() {
   const {
