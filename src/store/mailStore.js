@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 
 export { supabase };
@@ -9,24 +8,19 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const EDGE_URL = `${SUPABASE_URL}/functions/v1/ai-assistant`;
 const PHISHING_API = "https://axon-phishing-backend.onrender.com/api/phishing";
 
-const QUARANTINE_SUPABASE_URL = import.meta.env.VITE_QUARANTINE_SUPABASE_URL;
-const QUARANTINE_SUPABASE_KEY = import.meta.env.VITE_QUARANTINE_SUPABASE_ANON_KEY;
-
-if (!QUARANTINE_SUPABASE_URL || !QUARANTINE_SUPABASE_KEY) {
-  console.warn(
-    "Quarantine Supabase env vars missing (VITE_QUARANTINE_SUPABASE_URL / VITE_QUARANTINE_SUPABASE_ANON_KEY). Quarantine logs disabled."
-  );
-}
-
-const mySupabase = QUARANTINE_SUPABASE_URL && QUARANTINE_SUPABASE_KEY
-  ? createClient(QUARANTINE_SUPABASE_URL, QUARANTINE_SUPABASE_KEY, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    })
-  : null;
+// Quarantine logs are optional. If the `quarantine_logs` table does not exist
+// on the main Supabase project, this helper swallows the error so core flows
+// (release/delete) keep working.
+const logQuarantineEvent = async (payload) => {
+  try {
+    const { error } = await supabase.from("quarantine_logs").insert(payload);
+    if (error) {
+      console.warn("[QuarantineLog] insert skipped:", error.message);
+    }
+  } catch (err) {
+    console.warn("[QuarantineLog] insert failed:", err?.message || err);
+  }
+};
 
 const autoScanInFlight = new Set();
 
@@ -303,8 +297,8 @@ export const useMailStore = create((set, get) => ({
           : s.selectedMail,
       }));
 
-      if (shouldQuarantine && mySupabase) {
-        await mySupabase.from("quarantine_logs").insert({
+      if (shouldQuarantine) {
+        await logQuarantineEvent({
           email_id: mail.id,
           sender: mail.sender || "",
           subject: mail.subject || "",
@@ -329,14 +323,12 @@ export const useMailStore = create((set, get) => ({
       .update({ quarantine_status: false, quarantine_reason: null })
       .eq("id", id);
 
-    if (mySupabase) {
-      await mySupabase.from("quarantine_logs").insert({
-        email_id: id,
-        action: "released",
-        phishing_score: null,
-        risk_level: "released",
-      });
-    }
+    await logQuarantineEvent({
+      email_id: id,
+      action: "released",
+      phishing_score: null,
+      risk_level: "released",
+    });
 
     set((s) => ({
       mails: s.mails.map((m) =>
@@ -351,14 +343,12 @@ export const useMailStore = create((set, get) => ({
   deleteMail: async (id) => {
     await supabase.from("emails").delete().eq("id", id);
 
-    if (mySupabase) {
-      await mySupabase.from("quarantine_logs").insert({
-        email_id: id,
-        action: "deleted",
-        phishing_score: null,
-        risk_level: "deleted",
-      });
-    }
+    await logQuarantineEvent({
+      email_id: id,
+      action: "deleted",
+      phishing_score: null,
+      risk_level: "deleted",
+    });
 
     set((s) => ({
       mails: s.mails.filter((m) => m.id !== id),
