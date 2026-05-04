@@ -109,7 +109,39 @@ export const useMailStore = create((set, get) => ({
   setFolder: (folder) => set({ activeFolder: folder, activeCategory: "Primary", selectedMail: null }),
   setActiveCategory: (category) => set({ activeCategory: category, selectedMail: null }),
   setSearchText: (text) => set({ searchText: text }),
-  setSelectedMail: (mail) => set({ selectedMail: mail }),
+  setSelectedMail: (mail) => {
+    set({ selectedMail: mail });
+
+    // Mark as read on open (DB + local state) so category counts reflect unread only.
+    if (mail?.id && !mail.read_status) {
+      // Optimistic local update
+      set((s) => ({
+        mails: s.mails.map((m) =>
+          m.id === mail.id ? { ...m, read_status: true } : m
+        ),
+        selectedMail:
+          s.selectedMail?.id === mail.id
+            ? { ...s.selectedMail, read_status: true }
+            : s.selectedMail,
+      }));
+
+      // Persist to DB (fire-and-forget; revert on error)
+      supabase
+        .from("emails")
+        .update({ read_status: true })
+        .eq("id", mail.id)
+        .then(({ error }) => {
+          if (error) {
+            console.warn("[setSelectedMail] read_status update failed:", error.message);
+            set((s) => ({
+              mails: s.mails.map((m) =>
+                m.id === mail.id ? { ...m, read_status: false } : m
+              ),
+            }));
+          }
+        });
+    }
+  },
 
   updateUser: async (updates) => {
     try {
