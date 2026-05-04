@@ -1,4 +1,4 @@
-# Logs
+﻿# Logs
 logs
 *.log
 npm-debug.log*
@@ -11,7 +11,6 @@ node_modules
 dist
 dist-ssr
 *.local
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +21,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Ignore all markdown docs â€” only README and CONTRIBUTING are public
+*.md
+!README.md
+!CONTRIBUTING.md
+.sql
+!SECURITY.md
+!LICENSE.md

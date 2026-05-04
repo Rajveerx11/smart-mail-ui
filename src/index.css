@@ -7,11 +7,45 @@
 ================================ */
 * {
   -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
 }
 
+html,
 body {
-  @apply bg-gray-100 text-gray-800;
+  @apply bg-[#f5f7fb] text-slate-900;
   font-family: "Inter", system-ui, sans-serif;
+  margin: 0;
+  min-width: 320px;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.14);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+  border: 3px solid transparent;
+  background-clip: content-box;
 }
 
 /* ================================
@@ -109,7 +143,14 @@ button {
 }
 
 button:active {
-  transform: scale(0.97);
+  transform: scale(0.99);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.45);
+  outline-offset: 2px;
 }
 
 /* ================================

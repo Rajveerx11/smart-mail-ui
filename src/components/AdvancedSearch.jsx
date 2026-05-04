@@ -2,6 +2,27 @@ import { X, Calendar } from "lucide-react";
 import { useState } from "react";
 import { useMailStore } from "../store/mailStore";
 
+function SearchInput({ label, keyName, form, setForm, focused, setFocused }) {
+  return (
+    <div className="grid grid-cols-[140px_1fr] items-center gap-4">
+      <span className="text-sm text-gray-600">{label}</span>
+      <input
+        value={form[keyName]}
+        onChange={(e) =>
+          setForm({ ...form, [keyName]: e.target.value })
+        }
+        onFocus={() => setFocused(label)}
+        onBlur={() => setFocused(null)}
+        className={`border-b outline-none py-[2px] text-sm ${
+          focused === label
+            ? "border-blue-600 border-b-2"
+            : "border-gray-400"
+        }`}
+      />
+    </div>
+  );
+}
+
 export default function AdvancedSearch() {
   const {
     isSearchPanelOpen,
@@ -30,25 +51,6 @@ export default function AdvancedSearch() {
     resetAdvancedSearch();
     closeSearchPanel();
   };
-
-  const Input = ({ label, keyName }) => (
-    <div className="grid grid-cols-[140px_1fr] items-center gap-4">
-      <span className="text-sm text-gray-600">{label}</span>
-      <input
-        value={form[keyName]}
-        onChange={(e) =>
-          setForm({ ...form, [keyName]: e.target.value })
-        }
-        onFocus={() => setFocused(label)}
-        onBlur={() => setFocused(null)}
-        className={`border-b outline-none py-[2px] text-sm ${
-          focused === label
-            ? "border-blue-600 border-b-2"
-            : "border-gray-400"
-        }`}
-      />
-    </div>
-  );
 
   return (
     <>
@@ -83,11 +85,11 @@ export default function AdvancedSearch() {
 
         {/* FORM */}
         <div className="space-y-3">
-          <Input label="From" keyName="from" />
-          <Input label="To" keyName="to" />
-          <Input label="Subject" keyName="subject" />
-          <Input label="Includes the words" keyName="words" />
-          <Input label="Doesn't have" keyName="notWords" />
+          <SearchInput label="From" keyName="from" form={form} setForm={setForm} focused={focused} setFocused={setFocused} />
+          <SearchInput label="To" keyName="to" form={form} setForm={setForm} focused={focused} setFocused={setFocused} />
+          <SearchInput label="Subject" keyName="subject" form={form} setForm={setForm} focused={focused} setFocused={setFocused} />
+          <SearchInput label="Includes the words" keyName="words" form={form} setForm={setForm} focused={focused} setFocused={setFocused} />
+          <SearchInput label="Doesn't have" keyName="notWords" form={form} setForm={setForm} focused={focused} setFocused={setFocused} />
 
           {/* DATE */}
           <div className="grid grid-cols-[140px_1fr] items-center gap-4">

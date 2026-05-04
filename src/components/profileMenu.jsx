@@ -1,4 +1,5 @@
-import { X, UserPlus, LogOut, Camera } from "lucide-react";
+import { Camera, Loader2, LogOut, UserPlus, X } from "lucide-react";
+import { useState } from "react";
 import { useMailStore } from "../store/mailStore";
 import { useRef, useState } from "react";
 
@@ -7,145 +8,110 @@ export default function ProfileMenu() {
     user,
     isProfileOpen,
     closeProfile,
-    openAddAccount,     // ✅ already exists
-    openSignOut,        // ✅ already exists
-    openManageAccount, // ✅ already exists
+    openAddAccount,
+    openSignOut,
+    uploadProfilePhoto,
   } = useMailStore();
 
-  const fileRef = useRef(null);
-  const [profileImg, setProfileImg] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  if (!isProfileOpen) return null;
+  const getDisplayName = () => {
+    if (user?.user_metadata?.name) return user.user_metadata.name;
 
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
+    const emailName = user?.email?.split("@")[0] || "User";
+    return emailName
+      .split(".")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  };
+
+  const displayName = getDisplayName();
+  const userInitial = displayName.charAt(0).toUpperCase();
+  const userPhoto = user?.user_metadata?.photo;
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
     if (!file) return;
-    setProfileImg(URL.createObjectURL(file));
+
+    setIsUploading(true);
+    await uploadProfilePhoto(file);
+    setIsUploading(false);
   };
 
   return (
-    <>
-      {/* BACKDROP */}
-      <div
-        className="fixed inset-0 z-40"
-        onClick={closeProfile}
-      />
-
-      {/* MENU */}
-      <div
-        className="
-          absolute right-4 top-16 z-50 w-80
-          bg-white rounded-xl border
-          shadow-[0_12px_30px_rgba(0,0,0,0.25)]
-        "
-        onClick={(e) => e.stopPropagation()}
-      >
-       {/* HEADER */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        {/* ✅ EMAIL INSTEAD OF ACCOUNT TEXT */}
-        <span className="text-sm font-medium text-gray-700">
-          {user.email}
-        </span>
-
-        <button onClick={closeProfile}>
+    <div className="absolute right-0 mt-3 w-[360px] bg-white rounded-lg shadow-2xl p-6 profile-dropdown z-50 border border-slate-200 flex flex-col items-center">
+      <div className="w-full flex justify-between items-center mb-2">
+        <span className="text-xs font-semibold text-slate-400 tracking-wider">ACCOUNT</span>
+        <button
+          onClick={closeProfile}
+          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+          aria-label="Close profile menu"
+        >
           <X size={18} />
         </button>
       </div>
 
-        {/* USER INFO */}
-        <div className="flex flex-col items-center py-5">
-          <div className="relative">
-            {profileImg ? (
-              <img
-                src={profileImg}
-                className="w-20 h-20 rounded-full object-cover shadow"
-              />
-            ) : (
-              <div className="
-                w-20 h-20 rounded-full bg-blue-600
-                text-white flex items-center justify-center
-                text-3xl font-semibold shadow
-              ">
-                {user.name.charAt(0)}
-              </div>
-            )}
-
-            {/* CAMERA */}
-            <button
-              onClick={() => fileRef.current.click()}
-              className="
-                absolute bottom-0 right-0
-                bg-blue-600 text-white
-                p-1.5 rounded-full
-                hover:bg-blue-700
-              "
-            >
-              <Camera size={14} />
-            </button>
-
-            <input
-              ref={fileRef}
-              type="file"
-              hidden
-              accept="image/*"
-              onChange={handleImageChange}
-            />
-          </div>
-
-          <h3 className="mt-3 font-medium">{user.name}</h3>
-          <p className="text-sm text-gray-500">{user.email}</p>
-
-          {/* MANAGE ACCOUNT */}
-          <button
-            onClick={() => {
-              closeProfile();
-              openManageAccount();
-            }}
-            className="
-              mt-4 px-4 py-1.5 text-sm
-              border rounded-full
-              hover:bg-gray-100
-            "
-          >
-            Manage your account
-          </button>
+      <div className="relative group cursor-pointer mb-3">
+        <div className="w-24 h-24 rounded-lg bg-blue-600 text-white flex items-center justify-center text-4xl shadow-sm overflow-hidden border border-slate-200">
+          {userPhoto ? (
+            <img src={userPhoto} alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            <span className="font-semibold">{userInitial}</span>
+          )}
         </div>
 
-        {/* ACTIONS */}
-        <div className="border-t">
-          {/* ADD ACCOUNT */}
-          <button
-            onClick={() => {
-              closeProfile();
-              openAddAccount(); // ✅ opens AddAccountModal
-            }}
-            className="
-              flex items-center gap-3
-              px-5 py-3 w-full
-              hover:bg-gray-100 text-sm
-            "
-          >
-            <UserPlus size={18} />
-            Add another account
-          </button>
+        <label
+          htmlFor="profile-upload"
+          className="absolute inset-0 rounded-lg bg-black/45 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+        >
+          {isUploading ? (
+            <Loader2 size={24} className="text-white animate-spin" />
+          ) : (
+            <Camera size={24} className="text-white drop-shadow-md" />
+          )}
+        </label>
+        <input
+          id="profile-upload"
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handlePhotoUpload}
+          disabled={isUploading}
+        />
 
-          {/* SIGN OUT */}
-          <button
-            onClick={() => {
-              closeProfile();
-              openSignOut(); // ✅ opens SignOutModal
-            }}
-            className="
-              flex items-center gap-3
-              px-5 py-3 w-full
-              hover:bg-red-50 text-sm text-red-600
-            "
-          >
-            <LogOut size={18} />
-            Sign out
-          </button>
+        <div className="absolute bottom-1 right-1 bg-white rounded-lg p-1.5 shadow-sm border border-slate-200">
+          <Camera size={14} className="text-slate-600" />
         </div>
       </div>
-    </>
+
+      <h2 className="text-xl font-semibold text-slate-950 text-center">
+        Hi, {displayName}!
+      </h2>
+      <p className="text-sm text-slate-500 text-center mt-1 mb-6 px-4 truncate w-full">
+        {user?.email}
+      </p>
+
+      <div className="w-full space-y-3">
+        <button
+          onClick={openAddAccount}
+          className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-lg border border-slate-200 text-slate-700 font-medium text-sm hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm transition-all duration-200"
+        >
+          <UserPlus size={18} />
+          Add another account
+        </button>
+
+        <button
+          onClick={openSignOut}
+          className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-lg bg-red-50 text-red-600 font-medium text-sm hover:bg-red-100 hover:shadow-sm transition-all duration-200"
+        >
+          <LogOut size={18} />
+          Sign out
+        </button>
+      </div>
+
+      <div className="mt-6 text-[10px] text-slate-300 font-medium tracking-widest uppercase">
+        Bodhak AI - Axon Mail
+      </div>
+    </div>
   );
 }
