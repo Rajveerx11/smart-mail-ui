@@ -221,8 +221,14 @@ export default function MailView() {
 
   const handleDeleteMail = async () => {
     setMailAction("delete");
-    await deleteMail(selectedMail.id);
-    setMailAction(null);
+    try {
+      await deleteMail(selectedMail.id);
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || "Failed to delete email.");
+    } finally {
+      setMailAction(null);
+    }
   };
 
   return (

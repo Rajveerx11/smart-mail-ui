@@ -341,7 +341,27 @@ export const useMailStore = create((set, get) => ({
   },
 
   deleteMail: async (id) => {
-    await supabase.from("emails").delete().eq("id", id);
+    const { data, error } = await supabase
+      .from("emails")
+      .delete()
+      .eq("id", id)
+      .select();
+
+    if (error) {
+      console.error("[deleteMail] Supabase delete failed:", error);
+      throw new Error(`Delete failed: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      console.warn(
+        "[deleteMail] No rows deleted for id",
+        id,
+        "— likely RLS policy missing for DELETE on public.emails"
+      );
+      throw new Error(
+        "Delete blocked by database policy. The email was not removed. (Likely missing RLS DELETE policy.)"
+      );
+    }
 
     await logQuarantineEvent({
       email_id: id,
